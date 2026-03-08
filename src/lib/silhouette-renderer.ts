@@ -456,12 +456,11 @@ function gradientDefs(): string {
 // ── Main renderer ──
 export function renderSilhouette(garment: GarmentConfig, theme: SketchTheme = "dark"): string {
   currentTheme = theme;
-  const tc = themeColors();
   const croquis = renderCroquis();
   const garmentPaths: string[] = [];
   const extras: string[] = [];
-  const strokeColor = tc.strokeColor;
-  const fillColor = tc.fillColor;
+  const strokeColor = "hsl(var(--primary))";
+  const fillColor = "url(#garment-shade)";
 
   switch (garment.category) {
     case "top": {
