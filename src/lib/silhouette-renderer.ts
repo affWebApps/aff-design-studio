@@ -195,7 +195,8 @@ function sleevePath(type: SleeveType, side: "left" | "right", fit: FitType): str
   }
 }
 
-function garmentBodyPath(hemY: number, fit: FitType, flare: number = 0, waistlineShift: number = 0): string {
+/** Returns an array of separate path strings (each with its own M command) for the garment body. */
+function garmentBodyPaths(hemY: number, fit: FitType, flare: number = 0, waistlineShift: number = 0): string[] {
   const fw = fitExpand(fit);
   const bw = BUST_W + fw;
   const ww = WAIST_W + fw;
@@ -204,25 +205,38 @@ function garmentBodyPath(hemY: number, fit: FitType, flare: number = 0, waistlin
   const actualWaistY = WAIST_Y + waistlineShift;
   const hemW = hw + flare;
 
-  // Build smooth body contour with cubic beziers
   if (hemY <= BUST_Y + 10) {
-    // Very short (crop top)
     const tw = bw - (bw - ww) * ((hemY - SHOULDER_Y) / (WAIST_Y - SHOULDER_Y));
-    return `L ${CX - bw} ${BUST_Y} C ${CX - bw + 1} ${BUST_Y + 5} ${CX - tw - 2} ${hemY - 5} ${CX - tw} ${hemY} L ${CX + tw} ${hemY} C ${CX + tw + 2} ${hemY - 5} ${CX + bw - 1} ${BUST_Y + 5} ${CX + bw} ${BUST_Y}`;
+    // Left side
+    const left = `M ${CX - bw} ${BUST_Y} C ${CX - bw + 1} ${BUST_Y + 5} ${CX - tw - 2} ${hemY - 5} ${CX - tw} ${hemY}`;
+    // Hem
+    const hem = `M ${CX - tw} ${hemY} L ${CX + tw} ${hemY}`;
+    // Right side
+    const right = `M ${CX + tw} ${hemY} C ${CX + tw + 2} ${hemY - 5} ${CX + bw - 1} ${BUST_Y + 5} ${CX + bw} ${BUST_Y}`;
+    return [left, hem, right];
   }
 
   if (hemY <= actualWaistY + 5) {
-    return `C ${CX - bw - 1} ${BUST_Y - 15} ${CX - bw - 2} ${BUST_Y - 5} ${CX - bw} ${BUST_Y} C ${CX - bw + 2} ${BUST_Y + 18} ${CX - ww - 3} ${hemY - 15} ${CX - ww} ${hemY} L ${CX + ww} ${hemY} C ${CX + ww + 3} ${hemY - 15} ${CX + bw - 2} ${BUST_Y + 18} ${CX + bw} ${BUST_Y} C ${CX + bw + 2} ${BUST_Y - 5} ${CX + bw + 1} ${BUST_Y - 15}`;
+    const left = `M ${CX - bw} ${BUST_Y} C ${CX - bw + 2} ${BUST_Y + 18} ${CX - ww - 3} ${hemY - 15} ${CX - ww} ${hemY}`;
+    const hem = `M ${CX - ww} ${hemY} L ${CX + ww} ${hemY}`;
+    const right = `M ${CX + ww} ${hemY} C ${CX + ww + 3} ${hemY - 15} ${CX + bw - 2} ${BUST_Y + 18} ${CX + bw} ${BUST_Y}`;
+    return [left, hem, right];
   }
 
   if (hemY <= HIP_Y + 10) {
     const t = (hemY - actualWaistY) / (HIP_Y - actualWaistY);
     const hemWAtY = ww + (hw - ww) * t + flare * t;
-    return `C ${CX - bw - 1} ${BUST_Y - 15} ${CX - bw - 2} ${BUST_Y - 5} ${CX - bw} ${BUST_Y} C ${CX - bw + 2} ${BUST_Y + 18} ${CX - ww - 3} ${actualWaistY - 15} ${CX - ww} ${actualWaistY} C ${CX - ww - 2} ${actualWaistY + 12} ${CX - hemWAtY - 2} ${hemY - 10} ${CX - hemWAtY} ${hemY} L ${CX + hemWAtY} ${hemY} C ${CX + hemWAtY + 2} ${hemY - 10} ${CX + ww + 2} ${actualWaistY + 12} ${CX + ww} ${actualWaistY} C ${CX + ww + 3} ${actualWaistY - 15} ${CX + bw - 2} ${BUST_Y + 18} ${CX + bw} ${BUST_Y} C ${CX + bw + 2} ${BUST_Y - 5} ${CX + bw + 1} ${BUST_Y - 15}`;
+    const left = `M ${CX - bw} ${BUST_Y} C ${CX - bw + 2} ${BUST_Y + 18} ${CX - ww - 3} ${actualWaistY - 15} ${CX - ww} ${actualWaistY} C ${CX - ww - 2} ${actualWaistY + 12} ${CX - hemWAtY - 2} ${hemY - 10} ${CX - hemWAtY} ${hemY}`;
+    const hem = `M ${CX - hemWAtY} ${hemY} L ${CX + hemWAtY} ${hemY}`;
+    const right = `M ${CX + hemWAtY} ${hemY} C ${CX + hemWAtY + 2} ${hemY - 10} ${CX + ww + 2} ${actualWaistY + 12} ${CX + ww} ${actualWaistY} C ${CX + ww + 3} ${actualWaistY - 15} ${CX + bw - 2} ${BUST_Y + 18} ${CX + bw} ${BUST_Y}`;
+    return [left, hem, right];
   }
 
   // Below hip
-  return `C ${CX - bw - 1} ${BUST_Y - 15} ${CX - bw - 2} ${BUST_Y - 5} ${CX - bw} ${BUST_Y} C ${CX - bw + 2} ${BUST_Y + 18} ${CX - ww - 3} ${actualWaistY - 15} ${CX - ww} ${actualWaistY} C ${CX - ww - 2} ${actualWaistY + 12} ${CX - hw - 2} ${HIP_Y - 8} ${CX - hw} ${HIP_Y} C ${CX - hw - 1} ${HIP_Y + 10} ${CX - hemW - 1} ${hemY - 15} ${CX - hemW} ${hemY} L ${CX + hemW} ${hemY} C ${CX + hemW + 1} ${hemY - 15} ${CX + hw + 1} ${HIP_Y + 10} ${CX + hw} ${HIP_Y} C ${CX + hw + 2} ${HIP_Y - 8} ${CX + ww + 2} ${actualWaistY + 12} ${CX + ww} ${actualWaistY} C ${CX + ww + 3} ${actualWaistY - 15} ${CX + bw - 2} ${BUST_Y + 18} ${CX + bw} ${BUST_Y} C ${CX + bw + 2} ${BUST_Y - 5} ${CX + bw + 1} ${BUST_Y - 15}`;
+  const left = `M ${CX - bw} ${BUST_Y} C ${CX - bw + 2} ${BUST_Y + 18} ${CX - ww - 3} ${actualWaistY - 15} ${CX - ww} ${actualWaistY} C ${CX - ww - 2} ${actualWaistY + 12} ${CX - hw - 2} ${HIP_Y - 8} ${CX - hw} ${HIP_Y} C ${CX - hw - 1} ${HIP_Y + 10} ${CX - hemW - 1} ${hemY - 15} ${CX - hemW} ${hemY}`;
+  const hem = `M ${CX - hemW} ${hemY} L ${CX + hemW} ${hemY}`;
+  const right = `M ${CX + hemW} ${hemY} C ${CX + hemW + 1} ${hemY - 15} ${CX + hw + 1} ${HIP_Y + 10} ${CX + hw} ${HIP_Y} C ${CX + hw + 2} ${HIP_Y - 8} ${CX + ww + 2} ${actualWaistY + 12} ${CX + ww} ${actualWaistY} C ${CX + ww + 3} ${actualWaistY - 15} ${CX + bw - 2} ${BUST_Y + 18} ${CX + bw} ${BUST_Y}`;
+  return [left, hem, right];
 }
 
 function getHemY(length: SkirtLength | TopLength | PantsLength | string): number {
@@ -384,7 +398,7 @@ function gatheredTexture(hemY: number, hemW: number, silhouette: SkirtSilhouette
   return lines.join("");
 }
 
-function pantsBody(style: PantsStyle, length: PantsLength, waistband: WaistbandType, fit: FitType): string {
+function pantsBody(style: PantsStyle, length: PantsLength, waistband: WaistbandType, fit: FitType): string[] {
   const fw = fitExpand(fit || "regular");
   const hemY = getHemY(length);
   const ww = WAIST_W + fw;
@@ -404,21 +418,28 @@ function pantsBody(style: PantsStyle, length: PantsLength, waistband: WaistbandT
   const wbH = waistband === "yoke" ? 16 : 7;
   const hipLegW = style === "wide" || style === "flared" ? hw + 2 : hw - 1;
 
-  // Left leg
-  const leftOuter = `M ${CX - ww} ${WAIST_Y - wbH} L ${CX - ww} ${WAIST_Y} C ${CX - ww - 1} ${WAIST_Y + 10} ${CX - hw - 2} ${HIP_Y - 8} ${CX - hw} ${HIP_Y} C ${CX - hipLegW - 1} ${HIP_Y + 10} ${CX - hipLegW - 2} ${crotchY - 5} ${CX - hipLegW} ${crotchY} C ${CX - hipLegW + 2} ${crotchY + 20} ${CX - legW - 2} ${hemY - 20} ${CX - legW} ${hemY}`;
-  const leftInner = `L ${CX - gap} ${hemY} C ${CX - gap} ${hemY - 20} ${CX - gap} ${crotchY + 10} ${CX - gap} ${crotchY}`;
+  // Each part is a separate path with its own M command (pen lifts between parts)
+  const paths: string[] = [];
 
-  // Right leg
-  const rightInner = `M ${CX + gap} ${crotchY} C ${CX + gap} ${crotchY + 10} ${CX + gap} ${hemY - 20} ${CX + gap} ${hemY}`;
-  const rightOuter = `L ${CX + legW} ${hemY} C ${CX + legW + 2} ${hemY - 20} ${CX + hipLegW - 2} ${crotchY + 20} ${CX + hipLegW} ${crotchY} C ${CX + hipLegW + 2} ${crotchY - 5} ${CX + hipLegW + 1} ${HIP_Y + 10} ${CX + hw} ${HIP_Y} C ${CX + hw + 2} ${HIP_Y - 8} ${CX + ww + 1} ${WAIST_Y + 10} ${CX + ww} ${WAIST_Y} L ${CX + ww} ${WAIST_Y - wbH}`;
+  // Waistband top
+  paths.push(`M ${CX - ww} ${WAIST_Y - wbH} L ${CX + ww} ${WAIST_Y - wbH}`);
 
-  // Waistband
-  const wband = `M ${CX - ww} ${WAIST_Y - wbH} L ${CX + ww} ${WAIST_Y - wbH}`;
+  // Left leg outer
+  paths.push(`M ${CX - ww} ${WAIST_Y - wbH} L ${CX - ww} ${WAIST_Y} C ${CX - ww - 1} ${WAIST_Y + 10} ${CX - hw - 2} ${HIP_Y - 8} ${CX - hw} ${HIP_Y} C ${CX - hipLegW - 1} ${HIP_Y + 10} ${CX - hipLegW - 2} ${crotchY - 5} ${CX - hipLegW} ${crotchY} C ${CX - hipLegW + 2} ${crotchY + 20} ${CX - legW - 2} ${hemY - 20} ${CX - legW} ${hemY}`);
+
+  // Left leg hem + inner
+  paths.push(`M ${CX - legW} ${hemY} L ${CX - gap} ${hemY} C ${CX - gap} ${hemY - 20} ${CX - gap} ${crotchY + 10} ${CX - gap} ${crotchY}`);
 
   // Crotch curve
-  const crotchCurve = `M ${CX - gap} ${crotchY} Q ${CX} ${crotchY + 8} ${CX + gap} ${crotchY}`;
+  paths.push(`M ${CX - gap} ${crotchY} Q ${CX} ${crotchY + 8} ${CX + gap} ${crotchY}`);
 
-  return `${leftOuter} ${leftInner} ${crotchCurve} ${rightInner} ${rightOuter} ${wband}`;
+  // Right leg inner + hem
+  paths.push(`M ${CX + gap} ${crotchY} C ${CX + gap} ${crotchY + 10} ${CX + gap} ${hemY - 20} ${CX + gap} ${hemY} L ${CX + legW} ${hemY}`);
+
+  // Right leg outer
+  paths.push(`M ${CX + legW} ${hemY} C ${CX + legW + 2} ${hemY - 20} ${CX + hipLegW - 2} ${crotchY + 20} ${CX + hipLegW} ${crotchY} C ${CX + hipLegW + 2} ${crotchY - 5} ${CX + hipLegW + 1} ${HIP_Y + 10} ${CX + hw} ${HIP_Y} C ${CX + hw + 2} ${HIP_Y - 8} ${CX + ww + 1} ${WAIST_Y + 10} ${CX + ww} ${WAIST_Y} L ${CX + ww} ${WAIST_Y - wbH}`);
+
+  return paths;
 }
 
 function pantsPocketDecor(pockets: string, style: PantsStyle): string {
@@ -470,10 +491,8 @@ export function renderSilhouette(garment: GarmentConfig, theme: SketchTheme = "d
       const sw = SHOULDER_W + fw;
       const hemW = WAIST_W + fw + (hemY > HIP_Y ? (HIP_W - WAIST_W + fw) : 0);
 
-      const neck = necklinePath(c.neckline, c.fit);
-      const body = garmentBodyPath(hemY, c.fit);
-      // Keep subpaths open: fill still closes visually, but stroke won't draw an unwanted closing seam.
-      garmentPaths.push(`${neck} ${body}`);
+      garmentPaths.push(necklinePath(c.neckline, c.fit));
+      garmentBodyPaths(hemY, c.fit).forEach(p => garmentPaths.push(p));
 
       const slL = sleevePath(c.sleeve, "left", c.fit);
       const slR = sleevePath(c.sleeve, "right", c.fit);
@@ -495,10 +514,8 @@ export function renderSilhouette(garment: GarmentConfig, theme: SketchTheme = "d
       if (c.waistline === "empire") waistShift = -(WAIST_Y - BUST_Y) + 12;
       else if (c.waistline === "drop") waistShift = (HIP_Y - WAIST_Y) - 8;
 
-      const neck = necklinePath(c.neckline, c.fit);
-      const body = garmentBodyPath(hemY, c.fit, flare, waistShift);
-      // Keep subpaths open: avoid top-crossing close-stroke artifacts.
-      garmentPaths.push(`${neck} ${body}`);
+      garmentPaths.push(necklinePath(c.neckline, c.fit));
+      garmentBodyPaths(hemY, c.fit, flare, waistShift).forEach(p => garmentPaths.push(p));
 
       const slL = sleevePath(c.sleeve, "left", c.fit);
       const slR = sleevePath(c.sleeve, "right", c.fit);
@@ -531,8 +548,7 @@ export function renderSilhouette(garment: GarmentConfig, theme: SketchTheme = "d
     }
     case "pants": {
       const c = garment.config;
-      const p = pantsBody(c.style, c.length, c.waistband, "regular");
-      garmentPaths.push(p);
+      pantsBody(c.style, c.length, c.waistband, "regular").forEach(p => garmentPaths.push(p));
 
       extras.push(pantsPocketDecor(c.pockets, c.style));
       extras.push(detailElements(c.details, getHemY(c.length), 17));
