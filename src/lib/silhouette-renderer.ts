@@ -42,6 +42,7 @@ const WRIST_Y = HIP_Y + 20;
 const HAND_Y = WRIST_Y + 22;
 
 export type SketchTheme = "dark" | "light";
+export type SketchView = "front" | "back";
 
 let currentTheme: SketchTheme = "dark";
 
