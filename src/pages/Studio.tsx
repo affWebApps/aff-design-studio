@@ -27,6 +27,7 @@ interface HistoryEntry {
 export default function Studio() {
   const [mode, setMode] = useState<StudioMode>("configure");
   const [garment, setGarment] = useState<GarmentConfig>(getDefaultConfig("top"));
+  const [sketchTheme, setSketchTheme] = useState<SketchTheme>("dark");
   const [measurements, setMeasurements] = useState<Measurements>({ ...defaultMeasurements });
   const [options] = useState<DesignOptions>({ ...defaultDesignOptions });
   const [zoom, setZoom] = useState(1);
