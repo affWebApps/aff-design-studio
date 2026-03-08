@@ -588,3 +588,4 @@ export function renderSilhouette(garment: GarmentConfig, theme: SketchTheme = "d
     ${mainPaths}
     ${extras.join("\n    ")}
   </svg>`;
+}
