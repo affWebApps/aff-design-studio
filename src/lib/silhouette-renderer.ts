@@ -548,8 +548,7 @@ export function renderSilhouette(garment: GarmentConfig, theme: SketchTheme = "d
     }
     case "pants": {
       const c = garment.config;
-      const p = pantsBody(c.style, c.length, c.waistband, "regular");
-      garmentPaths.push(p);
+      pantsBody(c.style, c.length, c.waistband, "regular").forEach(p => garmentPaths.push(p));
 
       extras.push(pantsPocketDecor(c.pockets, c.style));
       extras.push(detailElements(c.details, getHemY(c.length), 17));
