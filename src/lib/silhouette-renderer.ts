@@ -45,35 +45,11 @@ export type SketchTheme = "dark" | "light";
 
 let currentTheme: SketchTheme = "dark";
 
-function themeColors() {
-  if (currentTheme === "light") {
-    return {
-      skin: "rgba(200,180,160,0.18)",
-      skinStroke: "rgba(120,100,80,0.3)",
-      hairColor: "rgba(80,60,40,0.25)",
-      strokeColor: "#1a1a1a",
-      fillColor: "url(#garment-shade)",
-      mutedFg: "rgba(80,80,80,",
-      primaryHsl: "30,10%,15%",
-    };
-  }
-  return {
-    skin: "hsl(var(--muted-foreground) / 0.15)",
-    skinStroke: "hsl(var(--muted-foreground) / 0.25)",
-    hairColor: "hsl(var(--muted-foreground) / 0.2)",
-    strokeColor: "hsl(var(--primary))",
-    fillColor: "url(#garment-shade)",
-    mutedFg: "hsl(var(--muted-foreground) / ",
-    primaryHsl: "var(--primary)",
-  };
-}
-
 // ── Croquis (body figure) ──
 function renderCroquis(): string {
-  const tc = themeColors();
-  const skin = tc.skin;
-  const skinStroke = tc.skinStroke;
-  const hairColor = tc.hairColor;
+  const skin = "hsl(var(--muted-foreground) / 0.15)";
+  const skinStroke = "hsl(var(--muted-foreground) / 0.25)";
+  const hairColor = "hsl(var(--muted-foreground) / 0.2)";
 
   // Head - oval
   const headCX = CX;
