@@ -512,8 +512,9 @@ function gradientDefs(): string {
 }
 
 // ── Main renderer ──
-export function renderSilhouette(garment: GarmentConfig, theme: SketchTheme = "dark"): string {
+export function renderSilhouette(garment: GarmentConfig, theme: SketchTheme = "dark", view: SketchView = "front"): string {
   currentTheme = theme;
+  currentView = view;
   const croquis = renderCroquis();
   const garmentPaths: string[] = [];
   const extras: string[] = [];
