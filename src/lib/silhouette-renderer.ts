@@ -41,6 +41,10 @@ const ELBOW_Y = WAIST_Y + 15;
 const WRIST_Y = HIP_Y + 20;
 const HAND_Y = WRIST_Y + 22;
 
+export type SketchTheme = "dark" | "light";
+
+let currentTheme: SketchTheme = "dark";
+
 // ── Croquis (body figure) ──
 function renderCroquis(): string {
   const skin = "hsl(var(--muted-foreground) / 0.15)";
@@ -450,7 +454,8 @@ function gradientDefs(): string {
 }
 
 // ── Main renderer ──
-export function renderSilhouette(garment: GarmentConfig): string {
+export function renderSilhouette(garment: GarmentConfig, theme: SketchTheme = "dark"): string {
+  currentTheme = theme;
   const croquis = renderCroquis();
   const garmentPaths: string[] = [];
   const extras: string[] = [];
@@ -544,7 +549,13 @@ export function renderSilhouette(garment: GarmentConfig): string {
     .map(d => `<path d="${d}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" />`)
     .join("\n    ");
 
+  // For light theme, inject CSS overrides so all hsl(var(--...)) refs resolve to dark sketch colors
+  const themeStyle = currentTheme === "light" ? `<style>
+    svg { --primary: 20 8% 15%; --primary-foreground: 0 0% 96%; --muted-foreground: 20 6% 35%; --muted: 20 5% 85%; --border: 20 5% 75%; }
+  </style>` : "";
+
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" class="w-full h-full">
+    ${themeStyle}
     ${gradientDefs()}
     ${croquis}
     ${mainPaths}

@@ -16,6 +16,7 @@ import {
 import { exportSVG, exportPDF, exportDXF } from "@/lib/export-utils";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import type { SketchTheme } from "@/lib/silhouette-renderer";
 
 type StudioMode = "configure" | "pattern";
 
@@ -26,6 +27,7 @@ interface HistoryEntry {
 export default function Studio() {
   const [mode, setMode] = useState<StudioMode>("configure");
   const [garment, setGarment] = useState<GarmentConfig>(getDefaultConfig("top"));
+  const [sketchTheme, setSketchTheme] = useState<SketchTheme>("dark");
   const [measurements, setMeasurements] = useState<Measurements>({ ...defaultMeasurements });
   const [options] = useState<DesignOptions>({ ...defaultDesignOptions });
   const [zoom, setZoom] = useState(1);
@@ -140,15 +142,23 @@ export default function Studio() {
                 />
               </div>
               {/* Center: Silhouette preview */}
-              <div className="flex-1 bg-canvas canvas-grid flex items-center justify-center">
+              <div
+                className={`flex-1 flex items-center justify-center transition-colors duration-300 ${
+                  sketchTheme === "light" ? "bg-white" : "bg-canvas canvas-grid"
+                }`}
+              >
                 <motion.div
-                  key={JSON.stringify(garment)}
+                  key={JSON.stringify(garment) + sketchTheme}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.2 }}
                   className="w-full h-full"
                 >
-                  <SilhouettePreview garment={garment} />
+                  <SilhouettePreview
+                    garment={garment}
+                    sketchTheme={sketchTheme}
+                    onToggleTheme={() => setSketchTheme(t => t === "dark" ? "light" : "dark")}
+                  />
                 </motion.div>
               </div>
             </motion.div>
