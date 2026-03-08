@@ -42,8 +42,11 @@ const WRIST_Y = HIP_Y + 20;
 const HAND_Y = WRIST_Y + 22;
 
 export type SketchTheme = "dark" | "light";
+export type SketchView = "front" | "back";
 
 let currentTheme: SketchTheme = "dark";
+
+let currentView: SketchView = "front";
 
 // ── Croquis (body figure) ──
 function renderCroquis(): string {
@@ -57,19 +60,21 @@ function renderCroquis(): string {
   const headRX = 18;
   const headRY = HEAD_H / 2;
 
-  // Hair (simple)
-  const hair = `<ellipse cx="${headCX}" cy="${headCY - 4}" rx="${headRX + 3}" ry="${headRY + 2}" fill="${hairColor}" />`;
+  // Hair
+  const hair = currentView === "back"
+    ? `<ellipse cx="${headCX}" cy="${headCY}" rx="${headRX + 3}" ry="${headRY + 3}" fill="${hairColor}" />`
+    : `<ellipse cx="${headCX}" cy="${headCY - 4}" rx="${headRX + 3}" ry="${headRY + 2}" fill="${hairColor}" />`;
 
   // Head
   const head = `<ellipse cx="${headCX}" cy="${headCY}" rx="${headRX}" ry="${headRY}" fill="${skin}" stroke="${skinStroke}" stroke-width="0.8" />`;
 
-  // Face features (subtle)
-  const features = `
+  // Face features (only front)
+  const features = currentView === "front" ? `
     <ellipse cx="${CX - 6}" cy="${headCY - 2}" rx="2" ry="1.2" fill="none" stroke="${skinStroke}" stroke-width="0.6" />
     <ellipse cx="${CX + 6}" cy="${headCY - 2}" rx="2" ry="1.2" fill="none" stroke="${skinStroke}" stroke-width="0.6" />
     <path d="M ${CX - 4} ${headCY + 8} Q ${CX} ${headCY + 11} ${CX + 4} ${headCY + 8}" fill="none" stroke="${skinStroke}" stroke-width="0.6" />
     <line x1="${CX - 1}" y1="${headCY + 2}" x2="${CX}" y2="${headCY + 5}" stroke="${skinStroke}" stroke-width="0.5" />
-  `;
+  ` : "";
 
   // Neck
   const neck = `<path d="M ${CX - NECK_W} ${CHIN} L ${CX - NECK_W} ${NECK_BASE} Q ${CX - NECK_W - 2} ${SHOULDER_Y} ${CX - SHOULDER_W} ${SHOULDER_Y} M ${CX + NECK_W} ${CHIN} L ${CX + NECK_W} ${NECK_BASE} Q ${CX + NECK_W + 2} ${SHOULDER_Y} ${CX + SHOULDER_W} ${SHOULDER_Y}" fill="none" stroke="${skinStroke}" stroke-width="0.8" />`;
@@ -94,7 +99,14 @@ function renderCroquis(): string {
   const rightLegIn = `M ${CX + legGap} ${CROTCH_Y} C ${CX + legGap} ${KNEE_Y - 20} ${CX + legGap - 2} ${KNEE_Y} ${CX + legGap - 2} ${KNEE_Y} C ${CX + legGap - 2} ${KNEE_Y + 20} ${CX + legGap - 4} ${ANKLE_Y - 10} ${CX + legGap - 4} ${FOOT_Y}`;
   const legs = `<path d="${leftLeg}" fill="none" stroke="${skinStroke}" stroke-width="0.8" /><path d="${rightLeg}" fill="none" stroke="${skinStroke}" stroke-width="0.8" /><path d="${leftLegIn}" fill="none" stroke="${skinStroke}" stroke-width="0.6" /><path d="${rightLegIn}" fill="none" stroke="${skinStroke}" stroke-width="0.6" />`;
 
-  return `${hair}${head}${features}${neck}${torso}${arms}${legs}`;
+  // Back details (spine line, shoulder blades)
+  const backDetails = currentView === "back" ? `
+    <line x1="${CX}" y1="${NECK_BASE}" x2="${CX}" y2="${WAIST_Y}" stroke="${skinStroke}" stroke-width="0.4" opacity="0.5" />
+    <path d="M ${CX - 12} ${SHOULDER_Y + 20} Q ${CX - 14} ${SHOULDER_Y + 35} ${CX - 8} ${SHOULDER_Y + 45}" fill="none" stroke="${skinStroke}" stroke-width="0.3" opacity="0.4" />
+    <path d="M ${CX + 12} ${SHOULDER_Y + 20} Q ${CX + 14} ${SHOULDER_Y + 35} ${CX + 8} ${SHOULDER_Y + 45}" fill="none" stroke="${skinStroke}" stroke-width="0.3" opacity="0.4" />
+  ` : "";
+
+  return `${hair}${head}${features}${neck}${torso}${arms}${legs}${backDetails}`;
 }
 
 // ── Garment rendering helpers ──
@@ -107,7 +119,17 @@ function fitExpand(fit: FitType): number {
   }
 }
 
+function backNecklinePath(fit: FitType): string {
+  const fw = fitExpand(fit);
+  const sw = SHOULDER_W + fw;
+  // Back neckline is always a higher, rounder shape
+  const depth = 8;
+  return `M ${CX - sw} ${SHOULDER_Y} C ${CX - sw + 8} ${SHOULDER_Y - 3} ${CX - 12} ${NECK_BASE - depth} ${CX} ${NECK_BASE - depth + 3} C ${CX + 12} ${NECK_BASE - depth} ${CX + sw - 8} ${SHOULDER_Y - 3} ${CX + sw} ${SHOULDER_Y}`;
+}
+
 function necklinePath(type: NecklineType, fit: FitType): string {
+  if (currentView === "back") return backNecklinePath(fit);
+
   const fw = fitExpand(fit);
   const sw = SHOULDER_W + fw;
   const nBase = NECK_BASE;
@@ -291,6 +313,21 @@ function collarPath(type: CollarType, fit: FitType): string {
 
 function closureDecoration(type: ClosureType, hemY: number): string {
   if (type === "none") return "";
+
+  // Back view shows back-specific closures
+  if (currentView === "back") {
+    // Always show a back zip/seam line on back view
+    if (type === "back-zip" || type === "front-buttons" || type === "side-zip") {
+      return `<line x1="${CX}" y1="${NECK_BASE}" x2="${CX}" y2="${Math.min(hemY - 10, WAIST_Y + 15)}" stroke="hsl(var(--muted-foreground) / 0.4)" stroke-width="0.6" stroke-dasharray="3 2" />`;
+    }
+    if (type === "wrap") {
+      // Wrap ties shown at back
+      return `<path d="M ${CX - 5} ${WAIST_Y} L ${CX - 15} ${WAIST_Y + 20} M ${CX + 5} ${WAIST_Y} L ${CX + 15} ${WAIST_Y + 20}" fill="none" stroke="hsl(var(--primary))" stroke-width="0.8" />`;
+    }
+    return "";
+  }
+
+  // Front view closures (original)
   if (type === "front-buttons") {
     const dots: string[] = [];
     for (let y = SHOULDER_Y + 20; y < hemY - 10; y += 22) {
@@ -475,8 +512,9 @@ function gradientDefs(): string {
 }
 
 // ── Main renderer ──
-export function renderSilhouette(garment: GarmentConfig, theme: SketchTheme = "dark"): string {
+export function renderSilhouette(garment: GarmentConfig, theme: SketchTheme = "dark", view: SketchView = "front"): string {
   currentTheme = theme;
+  currentView = view;
   const croquis = renderCroquis();
   const garmentPaths: string[] = [];
   const extras: string[] = [];
