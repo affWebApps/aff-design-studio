@@ -11,14 +11,31 @@ interface SilhouettePreviewProps {
 }
 
 export function SilhouettePreview({ garment, sketchTheme, onToggleTheme }: SilhouettePreviewProps) {
-  const svgHtml = useMemo(() => renderSilhouette(garment, sketchTheme), [garment, sketchTheme]);
+  const frontSvg = useMemo(() => renderSilhouette(garment, sketchTheme, "front"), [garment, sketchTheme]);
+  const backSvg = useMemo(() => renderSilhouette(garment, sketchTheme, "back"), [garment, sketchTheme]);
 
   return (
-    <div className="relative flex items-center justify-center w-full h-full p-6">
-      <div
-        className="w-full max-w-[280px] h-full max-h-[560px]"
-        dangerouslySetInnerHTML={{ __html: svgHtml }}
-      />
+    <div className="relative flex flex-col items-center justify-center w-full h-full p-4">
+      <div className="flex items-center justify-center gap-2 w-full h-full">
+        {/* Front view */}
+        <div className="flex flex-col items-center flex-1 min-w-0">
+          <div
+            className="w-full max-w-[220px] h-full max-h-[500px]"
+            dangerouslySetInnerHTML={{ __html: frontSvg }}
+          />
+          <span className="mt-1 text-xs font-medium text-muted-foreground tracking-wide uppercase">Front</span>
+        </div>
+
+        {/* Back view */}
+        <div className="flex flex-col items-center flex-1 min-w-0">
+          <div
+            className="w-full max-w-[220px] h-full max-h-[500px]"
+            dangerouslySetInnerHTML={{ __html: backSvg }}
+          />
+          <span className="mt-1 text-xs font-medium text-muted-foreground tracking-wide uppercase">Back</span>
+        </div>
+      </div>
+
       {/* Theme toggle */}
       <Button
         variant="outline"
