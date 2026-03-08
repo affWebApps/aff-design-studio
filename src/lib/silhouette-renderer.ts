@@ -438,19 +438,17 @@ function pantsPocketDecor(pockets: string, style: PantsStyle): string {
 
 // ── Subtle shading gradient definitions ──
 function gradientDefs(): string {
-  const tc = themeColors();
-  const pc = currentTheme === "light" ? "#1a1a1a" : `hsl(${tc.primaryHsl})`;
   return `<defs>
     <linearGradient id="garment-shade" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="${pc}" stop-opacity="0.08" />
-      <stop offset="40%" stop-color="${pc}" stop-opacity="0.02" />
-      <stop offset="60%" stop-color="${pc}" stop-opacity="0.02" />
-      <stop offset="100%" stop-color="${pc}" stop-opacity="0.08" />
+      <stop offset="0%" stop-color="hsl(var(--primary))" stop-opacity="0.08" />
+      <stop offset="40%" stop-color="hsl(var(--primary))" stop-opacity="0.02" />
+      <stop offset="60%" stop-color="hsl(var(--primary))" stop-opacity="0.02" />
+      <stop offset="100%" stop-color="hsl(var(--primary))" stop-opacity="0.08" />
     </linearGradient>
     <linearGradient id="garment-vshade" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="${pc}" stop-opacity="0.04" />
-      <stop offset="50%" stop-color="${pc}" stop-opacity="0.01" />
-      <stop offset="100%" stop-color="${pc}" stop-opacity="0.06" />
+      <stop offset="0%" stop-color="hsl(var(--primary))" stop-opacity="0.04" />
+      <stop offset="50%" stop-color="hsl(var(--primary))" stop-opacity="0.01" />
+      <stop offset="100%" stop-color="hsl(var(--primary))" stop-opacity="0.06" />
     </linearGradient>
   </defs>`;
 }
