@@ -195,7 +195,8 @@ function sleevePath(type: SleeveType, side: "left" | "right", fit: FitType): str
   }
 }
 
-function garmentBodyPath(hemY: number, fit: FitType, flare: number = 0, waistlineShift: number = 0): string {
+/** Returns an array of separate path strings (each with its own M command) for the garment body. */
+function garmentBodyPaths(hemY: number, fit: FitType, flare: number = 0, waistlineShift: number = 0): string[] {
   const fw = fitExpand(fit);
   const bw = BUST_W + fw;
   const ww = WAIST_W + fw;
@@ -204,25 +205,38 @@ function garmentBodyPath(hemY: number, fit: FitType, flare: number = 0, waistlin
   const actualWaistY = WAIST_Y + waistlineShift;
   const hemW = hw + flare;
 
-  // Build smooth body contour with cubic beziers
   if (hemY <= BUST_Y + 10) {
-    // Very short (crop top)
     const tw = bw - (bw - ww) * ((hemY - SHOULDER_Y) / (WAIST_Y - SHOULDER_Y));
-    return `L ${CX - bw} ${BUST_Y} C ${CX - bw + 1} ${BUST_Y + 5} ${CX - tw - 2} ${hemY - 5} ${CX - tw} ${hemY} L ${CX + tw} ${hemY} C ${CX + tw + 2} ${hemY - 5} ${CX + bw - 1} ${BUST_Y + 5} ${CX + bw} ${BUST_Y}`;
+    // Left side
+    const left = `M ${CX - bw} ${BUST_Y} C ${CX - bw + 1} ${BUST_Y + 5} ${CX - tw - 2} ${hemY - 5} ${CX - tw} ${hemY}`;
+    // Hem
+    const hem = `M ${CX - tw} ${hemY} L ${CX + tw} ${hemY}`;
+    // Right side
+    const right = `M ${CX + tw} ${hemY} C ${CX + tw + 2} ${hemY - 5} ${CX + bw - 1} ${BUST_Y + 5} ${CX + bw} ${BUST_Y}`;
+    return [left, hem, right];
   }
 
   if (hemY <= actualWaistY + 5) {
-    return `C ${CX - bw - 1} ${BUST_Y - 15} ${CX - bw - 2} ${BUST_Y - 5} ${CX - bw} ${BUST_Y} C ${CX - bw + 2} ${BUST_Y + 18} ${CX - ww - 3} ${hemY - 15} ${CX - ww} ${hemY} L ${CX + ww} ${hemY} C ${CX + ww + 3} ${hemY - 15} ${CX + bw - 2} ${BUST_Y + 18} ${CX + bw} ${BUST_Y} C ${CX + bw + 2} ${BUST_Y - 5} ${CX + bw + 1} ${BUST_Y - 15}`;
+    const left = `M ${CX - bw} ${BUST_Y} C ${CX - bw + 2} ${BUST_Y + 18} ${CX - ww - 3} ${hemY - 15} ${CX - ww} ${hemY}`;
+    const hem = `M ${CX - ww} ${hemY} L ${CX + ww} ${hemY}`;
+    const right = `M ${CX + ww} ${hemY} C ${CX + ww + 3} ${hemY - 15} ${CX + bw - 2} ${BUST_Y + 18} ${CX + bw} ${BUST_Y}`;
+    return [left, hem, right];
   }
 
   if (hemY <= HIP_Y + 10) {
     const t = (hemY - actualWaistY) / (HIP_Y - actualWaistY);
     const hemWAtY = ww + (hw - ww) * t + flare * t;
-    return `C ${CX - bw - 1} ${BUST_Y - 15} ${CX - bw - 2} ${BUST_Y - 5} ${CX - bw} ${BUST_Y} C ${CX - bw + 2} ${BUST_Y + 18} ${CX - ww - 3} ${actualWaistY - 15} ${CX - ww} ${actualWaistY} C ${CX - ww - 2} ${actualWaistY + 12} ${CX - hemWAtY - 2} ${hemY - 10} ${CX - hemWAtY} ${hemY} L ${CX + hemWAtY} ${hemY} C ${CX + hemWAtY + 2} ${hemY - 10} ${CX + ww + 2} ${actualWaistY + 12} ${CX + ww} ${actualWaistY} C ${CX + ww + 3} ${actualWaistY - 15} ${CX + bw - 2} ${BUST_Y + 18} ${CX + bw} ${BUST_Y} C ${CX + bw + 2} ${BUST_Y - 5} ${CX + bw + 1} ${BUST_Y - 15}`;
+    const left = `M ${CX - bw} ${BUST_Y} C ${CX - bw + 2} ${BUST_Y + 18} ${CX - ww - 3} ${actualWaistY - 15} ${CX - ww} ${actualWaistY} C ${CX - ww - 2} ${actualWaistY + 12} ${CX - hemWAtY - 2} ${hemY - 10} ${CX - hemWAtY} ${hemY}`;
+    const hem = `M ${CX - hemWAtY} ${hemY} L ${CX + hemWAtY} ${hemY}`;
+    const right = `M ${CX + hemWAtY} ${hemY} C ${CX + hemWAtY + 2} ${hemY - 10} ${CX + ww + 2} ${actualWaistY + 12} ${CX + ww} ${actualWaistY} C ${CX + ww + 3} ${actualWaistY - 15} ${CX + bw - 2} ${BUST_Y + 18} ${CX + bw} ${BUST_Y}`;
+    return [left, hem, right];
   }
 
   // Below hip
-  return `C ${CX - bw - 1} ${BUST_Y - 15} ${CX - bw - 2} ${BUST_Y - 5} ${CX - bw} ${BUST_Y} C ${CX - bw + 2} ${BUST_Y + 18} ${CX - ww - 3} ${actualWaistY - 15} ${CX - ww} ${actualWaistY} C ${CX - ww - 2} ${actualWaistY + 12} ${CX - hw - 2} ${HIP_Y - 8} ${CX - hw} ${HIP_Y} C ${CX - hw - 1} ${HIP_Y + 10} ${CX - hemW - 1} ${hemY - 15} ${CX - hemW} ${hemY} L ${CX + hemW} ${hemY} C ${CX + hemW + 1} ${hemY - 15} ${CX + hw + 1} ${HIP_Y + 10} ${CX + hw} ${HIP_Y} C ${CX + hw + 2} ${HIP_Y - 8} ${CX + ww + 2} ${actualWaistY + 12} ${CX + ww} ${actualWaistY} C ${CX + ww + 3} ${actualWaistY - 15} ${CX + bw - 2} ${BUST_Y + 18} ${CX + bw} ${BUST_Y} C ${CX + bw + 2} ${BUST_Y - 5} ${CX + bw + 1} ${BUST_Y - 15}`;
+  const left = `M ${CX - bw} ${BUST_Y} C ${CX - bw + 2} ${BUST_Y + 18} ${CX - ww - 3} ${actualWaistY - 15} ${CX - ww} ${actualWaistY} C ${CX - ww - 2} ${actualWaistY + 12} ${CX - hw - 2} ${HIP_Y - 8} ${CX - hw} ${HIP_Y} C ${CX - hw - 1} ${HIP_Y + 10} ${CX - hemW - 1} ${hemY - 15} ${CX - hemW} ${hemY}`;
+  const hem = `M ${CX - hemW} ${hemY} L ${CX + hemW} ${hemY}`;
+  const right = `M ${CX + hemW} ${hemY} C ${CX + hemW + 1} ${hemY - 15} ${CX + hw + 1} ${HIP_Y + 10} ${CX + hw} ${HIP_Y} C ${CX + hw + 2} ${HIP_Y - 8} ${CX + ww + 2} ${actualWaistY + 12} ${CX + ww} ${actualWaistY} C ${CX + ww + 3} ${actualWaistY - 15} ${CX + bw - 2} ${BUST_Y + 18} ${CX + bw} ${BUST_Y}`;
+  return [left, hem, right];
 }
 
 function getHemY(length: SkirtLength | TopLength | PantsLength | string): number {
