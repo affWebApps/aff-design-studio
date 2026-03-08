@@ -484,10 +484,8 @@ export function renderSilhouette(garment: GarmentConfig, theme: SketchTheme = "d
       const sw = SHOULDER_W + fw;
       const hemW = WAIST_W + fw + (hemY > HIP_Y ? (HIP_W - WAIST_W + fw) : 0);
 
-      const neck = necklinePath(c.neckline, c.fit);
-      const body = garmentBodyPath(hemY, c.fit);
-      // Keep subpaths open: fill still closes visually, but stroke won't draw an unwanted closing seam.
-      garmentPaths.push(`${neck} ${body}`);
+      garmentPaths.push(necklinePath(c.neckline, c.fit));
+      garmentBodyPaths(hemY, c.fit).forEach(p => garmentPaths.push(p));
 
       const slL = sleevePath(c.sleeve, "left", c.fit);
       const slR = sleevePath(c.sleeve, "right", c.fit);
