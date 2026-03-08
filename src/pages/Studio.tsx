@@ -16,6 +16,7 @@ import {
 import { exportSVG, exportPDF, exportDXF } from "@/lib/export-utils";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import type { SketchTheme } from "@/lib/silhouette-renderer";
 
 type StudioMode = "configure" | "pattern";
 
