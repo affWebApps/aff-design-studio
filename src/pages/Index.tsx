@@ -56,7 +56,7 @@ const Index = () => {
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
               <Scissors className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="font-display text-lg font-bold tracking-tight">PatternForge</span>
+            <span className="font-display text-lg font-bold tracking-tight">AFF Design Studio</span>
           </Link>
           <div className="flex items-center gap-3">
             <Link to="/studio">
