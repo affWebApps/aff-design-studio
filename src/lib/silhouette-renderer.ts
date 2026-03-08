@@ -507,10 +507,8 @@ export function renderSilhouette(garment: GarmentConfig, theme: SketchTheme = "d
       if (c.waistline === "empire") waistShift = -(WAIST_Y - BUST_Y) + 12;
       else if (c.waistline === "drop") waistShift = (HIP_Y - WAIST_Y) - 8;
 
-      const neck = necklinePath(c.neckline, c.fit);
-      const body = garmentBodyPath(hemY, c.fit, flare, waistShift);
-      // Keep subpaths open: avoid top-crossing close-stroke artifacts.
-      garmentPaths.push(`${neck} ${body}`);
+      garmentPaths.push(necklinePath(c.neckline, c.fit));
+      garmentBodyPaths(hemY, c.fit, flare, waistShift).forEach(p => garmentPaths.push(p));
 
       const slL = sleevePath(c.sleeve, "left", c.fit);
       const slR = sleevePath(c.sleeve, "right", c.fit);
