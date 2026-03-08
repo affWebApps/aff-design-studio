@@ -46,6 +46,8 @@ export type SketchView = "front" | "back";
 
 let currentTheme: SketchTheme = "dark";
 
+let currentView: SketchView = "front";
+
 // ── Croquis (body figure) ──
 function renderCroquis(): string {
   const skin = "hsl(var(--muted-foreground) / 0.15)";
@@ -58,19 +60,21 @@ function renderCroquis(): string {
   const headRX = 18;
   const headRY = HEAD_H / 2;
 
-  // Hair (simple)
-  const hair = `<ellipse cx="${headCX}" cy="${headCY - 4}" rx="${headRX + 3}" ry="${headRY + 2}" fill="${hairColor}" />`;
+  // Hair
+  const hair = currentView === "back"
+    ? `<ellipse cx="${headCX}" cy="${headCY}" rx="${headRX + 3}" ry="${headRY + 3}" fill="${hairColor}" />`
+    : `<ellipse cx="${headCX}" cy="${headCY - 4}" rx="${headRX + 3}" ry="${headRY + 2}" fill="${hairColor}" />`;
 
   // Head
   const head = `<ellipse cx="${headCX}" cy="${headCY}" rx="${headRX}" ry="${headRY}" fill="${skin}" stroke="${skinStroke}" stroke-width="0.8" />`;
 
-  // Face features (subtle)
-  const features = `
+  // Face features (only front)
+  const features = currentView === "front" ? `
     <ellipse cx="${CX - 6}" cy="${headCY - 2}" rx="2" ry="1.2" fill="none" stroke="${skinStroke}" stroke-width="0.6" />
     <ellipse cx="${CX + 6}" cy="${headCY - 2}" rx="2" ry="1.2" fill="none" stroke="${skinStroke}" stroke-width="0.6" />
     <path d="M ${CX - 4} ${headCY + 8} Q ${CX} ${headCY + 11} ${CX + 4} ${headCY + 8}" fill="none" stroke="${skinStroke}" stroke-width="0.6" />
     <line x1="${CX - 1}" y1="${headCY + 2}" x2="${CX}" y2="${headCY + 5}" stroke="${skinStroke}" stroke-width="0.5" />
-  `;
+  ` : "";
 
   // Neck
   const neck = `<path d="M ${CX - NECK_W} ${CHIN} L ${CX - NECK_W} ${NECK_BASE} Q ${CX - NECK_W - 2} ${SHOULDER_Y} ${CX - SHOULDER_W} ${SHOULDER_Y} M ${CX + NECK_W} ${CHIN} L ${CX + NECK_W} ${NECK_BASE} Q ${CX + NECK_W + 2} ${SHOULDER_Y} ${CX + SHOULDER_W} ${SHOULDER_Y}" fill="none" stroke="${skinStroke}" stroke-width="0.8" />`;
@@ -95,7 +99,14 @@ function renderCroquis(): string {
   const rightLegIn = `M ${CX + legGap} ${CROTCH_Y} C ${CX + legGap} ${KNEE_Y - 20} ${CX + legGap - 2} ${KNEE_Y} ${CX + legGap - 2} ${KNEE_Y} C ${CX + legGap - 2} ${KNEE_Y + 20} ${CX + legGap - 4} ${ANKLE_Y - 10} ${CX + legGap - 4} ${FOOT_Y}`;
   const legs = `<path d="${leftLeg}" fill="none" stroke="${skinStroke}" stroke-width="0.8" /><path d="${rightLeg}" fill="none" stroke="${skinStroke}" stroke-width="0.8" /><path d="${leftLegIn}" fill="none" stroke="${skinStroke}" stroke-width="0.6" /><path d="${rightLegIn}" fill="none" stroke="${skinStroke}" stroke-width="0.6" />`;
 
-  return `${hair}${head}${features}${neck}${torso}${arms}${legs}`;
+  // Back details (spine line, shoulder blades)
+  const backDetails = currentView === "back" ? `
+    <line x1="${CX}" y1="${NECK_BASE}" x2="${CX}" y2="${WAIST_Y}" stroke="${skinStroke}" stroke-width="0.4" opacity="0.5" />
+    <path d="M ${CX - 12} ${SHOULDER_Y + 20} Q ${CX - 14} ${SHOULDER_Y + 35} ${CX - 8} ${SHOULDER_Y + 45}" fill="none" stroke="${skinStroke}" stroke-width="0.3" opacity="0.4" />
+    <path d="M ${CX + 12} ${SHOULDER_Y + 20} Q ${CX + 14} ${SHOULDER_Y + 35} ${CX + 8} ${SHOULDER_Y + 45}" fill="none" stroke="${skinStroke}" stroke-width="0.3" opacity="0.4" />
+  ` : "";
+
+  return `${hair}${head}${features}${neck}${torso}${arms}${legs}${backDetails}`;
 }
 
 // ── Garment rendering helpers ──
