@@ -418,21 +418,28 @@ function pantsBody(style: PantsStyle, length: PantsLength, waistband: WaistbandT
   const wbH = waistband === "yoke" ? 16 : 7;
   const hipLegW = style === "wide" || style === "flared" ? hw + 2 : hw - 1;
 
-  // Left leg
-  const leftOuter = `M ${CX - ww} ${WAIST_Y - wbH} L ${CX - ww} ${WAIST_Y} C ${CX - ww - 1} ${WAIST_Y + 10} ${CX - hw - 2} ${HIP_Y - 8} ${CX - hw} ${HIP_Y} C ${CX - hipLegW - 1} ${HIP_Y + 10} ${CX - hipLegW - 2} ${crotchY - 5} ${CX - hipLegW} ${crotchY} C ${CX - hipLegW + 2} ${crotchY + 20} ${CX - legW - 2} ${hemY - 20} ${CX - legW} ${hemY}`;
-  const leftInner = `L ${CX - gap} ${hemY} C ${CX - gap} ${hemY - 20} ${CX - gap} ${crotchY + 10} ${CX - gap} ${crotchY}`;
+  // Each part is a separate path with its own M command (pen lifts between parts)
+  const paths: string[] = [];
 
-  // Right leg
-  const rightInner = `M ${CX + gap} ${crotchY} C ${CX + gap} ${crotchY + 10} ${CX + gap} ${hemY - 20} ${CX + gap} ${hemY}`;
-  const rightOuter = `L ${CX + legW} ${hemY} C ${CX + legW + 2} ${hemY - 20} ${CX + hipLegW - 2} ${crotchY + 20} ${CX + hipLegW} ${crotchY} C ${CX + hipLegW + 2} ${crotchY - 5} ${CX + hipLegW + 1} ${HIP_Y + 10} ${CX + hw} ${HIP_Y} C ${CX + hw + 2} ${HIP_Y - 8} ${CX + ww + 1} ${WAIST_Y + 10} ${CX + ww} ${WAIST_Y} L ${CX + ww} ${WAIST_Y - wbH}`;
+  // Waistband top
+  paths.push(`M ${CX - ww} ${WAIST_Y - wbH} L ${CX + ww} ${WAIST_Y - wbH}`);
 
-  // Waistband
-  const wband = `M ${CX - ww} ${WAIST_Y - wbH} L ${CX + ww} ${WAIST_Y - wbH}`;
+  // Left leg outer
+  paths.push(`M ${CX - ww} ${WAIST_Y - wbH} L ${CX - ww} ${WAIST_Y} C ${CX - ww - 1} ${WAIST_Y + 10} ${CX - hw - 2} ${HIP_Y - 8} ${CX - hw} ${HIP_Y} C ${CX - hipLegW - 1} ${HIP_Y + 10} ${CX - hipLegW - 2} ${crotchY - 5} ${CX - hipLegW} ${crotchY} C ${CX - hipLegW + 2} ${crotchY + 20} ${CX - legW - 2} ${hemY - 20} ${CX - legW} ${hemY}`);
+
+  // Left leg hem + inner
+  paths.push(`M ${CX - legW} ${hemY} L ${CX - gap} ${hemY} C ${CX - gap} ${hemY - 20} ${CX - gap} ${crotchY + 10} ${CX - gap} ${crotchY}`);
 
   // Crotch curve
-  const crotchCurve = `M ${CX - gap} ${crotchY} Q ${CX} ${crotchY + 8} ${CX + gap} ${crotchY}`;
+  paths.push(`M ${CX - gap} ${crotchY} Q ${CX} ${crotchY + 8} ${CX + gap} ${crotchY}`);
 
-  return `${leftOuter} ${leftInner} ${crotchCurve} ${rightInner} ${rightOuter} ${wband}`;
+  // Right leg inner + hem
+  paths.push(`M ${CX + gap} ${crotchY} C ${CX + gap} ${crotchY + 10} ${CX + gap} ${hemY - 20} ${CX + gap} ${hemY} L ${CX + legW} ${hemY}`);
+
+  // Right leg outer
+  paths.push(`M ${CX + legW} ${hemY} C ${CX + legW + 2} ${hemY - 20} ${CX + hipLegW - 2} ${crotchY + 20} ${CX + hipLegW} ${crotchY} C ${CX + hipLegW + 2} ${crotchY - 5} ${CX + hipLegW + 1} ${HIP_Y + 10} ${CX + hw} ${HIP_Y} C ${CX + hw + 2} ${HIP_Y - 8} ${CX + ww + 1} ${WAIST_Y + 10} ${CX + ww} ${WAIST_Y} L ${CX + ww} ${WAIST_Y - wbH}`);
+
+  return paths;
 }
 
 function pantsPocketDecor(pockets: string, style: PantsStyle): string {
