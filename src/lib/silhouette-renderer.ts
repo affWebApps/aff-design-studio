@@ -576,10 +576,15 @@ export function renderSilhouette(garment: GarmentConfig, theme: SketchTheme = "d
     .map(d => `<path d="${d}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" />`)
     .join("\n    ");
 
+  // For light theme, inject CSS overrides so all hsl(var(--...)) refs resolve to dark sketch colors
+  const themeStyle = currentTheme === "light" ? `<style>
+    svg { --primary: 20 8% 15%; --primary-foreground: 0 0% 96%; --muted-foreground: 20 6% 35%; --muted: 20 5% 85%; --border: 20 5% 75%; }
+  </style>` : "";
+
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" class="w-full h-full">
+    ${themeStyle}
     ${gradientDefs()}
     ${croquis}
     ${mainPaths}
     ${extras.join("\n    ")}
   </svg>`;
-}
