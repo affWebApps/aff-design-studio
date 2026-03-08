@@ -1,35 +1,44 @@
 import { useState, useCallback, useMemo } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { GarmentConfigurator } from "@/components/studio/GarmentConfigurator";
+import { SilhouettePreview } from "@/components/studio/SilhouettePreview";
 import { MeasurementsPanel } from "@/components/studio/MeasurementsPanel";
 import { PatternCanvas } from "@/components/studio/PatternCanvas";
 import { Toolbar } from "@/components/studio/Toolbar";
+import { getDefaultConfig, type GarmentConfig } from "@/lib/garment-config";
+import { generatePatternFromConfig } from "@/lib/garment-pattern-engine";
 import {
-  generatePattern,
   defaultMeasurements,
   defaultDesignOptions,
   type Measurements,
   type DesignOptions,
 } from "@/lib/pattern-engine";
 import { exportSVG, exportPDF, exportDXF } from "@/lib/export-utils";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
+
+type StudioMode = "configure" | "pattern";
 
 interface HistoryEntry {
   measurements: Measurements;
-  options: DesignOptions;
 }
 
 export default function Studio() {
+  const [mode, setMode] = useState<StudioMode>("configure");
+  const [garment, setGarment] = useState<GarmentConfig>(getDefaultConfig("top"));
   const [measurements, setMeasurements] = useState<Measurements>({ ...defaultMeasurements });
-  const [options, setOptions] = useState<DesignOptions>({ ...defaultDesignOptions });
+  const [options] = useState<DesignOptions>({ ...defaultDesignOptions });
   const [zoom, setZoom] = useState(1);
 
-  // Undo/redo
-  const [history, setHistory] = useState<HistoryEntry[]>([{ measurements: { ...defaultMeasurements }, options: { ...defaultDesignOptions } }]);
+  // Undo/redo for pattern mode
+  const [history, setHistory] = useState<HistoryEntry[]>([{ measurements: { ...defaultMeasurements } }]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
   const pushHistory = useCallback(
-    (m: Measurements, o: DesignOptions) => {
+    (m: Measurements) => {
       setHistory((prev) => {
         const trimmed = prev.slice(0, historyIndex + 1);
-        return [...trimmed, { measurements: { ...m }, options: { ...o } }];
+        return [...trimmed, { measurements: { ...m } }];
       });
       setHistoryIndex((i) => i + 1);
     },
@@ -40,7 +49,6 @@ export default function Studio() {
     if (historyIndex <= 0) return;
     const prev = history[historyIndex - 1];
     setMeasurements({ ...prev.measurements });
-    setOptions({ ...prev.options });
     setHistoryIndex((i) => i - 1);
   }, [historyIndex, history]);
 
@@ -48,7 +56,6 @@ export default function Studio() {
     if (historyIndex >= history.length - 1) return;
     const next = history[historyIndex + 1];
     setMeasurements({ ...next.measurements });
-    setOptions({ ...next.options });
     setHistoryIndex((i) => i + 1);
   }, [historyIndex, history]);
 
@@ -56,39 +63,43 @@ export default function Studio() {
     (key: keyof Measurements, value: number) => {
       setMeasurements((prev) => {
         const next = { ...prev, [key]: value };
-        pushHistory(next, options);
+        pushHistory(next);
         return next;
       });
     },
-    [options, pushHistory]
-  );
-
-  const handleOptionChange = useCallback(
-    <K extends keyof DesignOptions>(key: K, value: DesignOptions[K]) => {
-      setOptions((prev) => {
-        const next = { ...prev, [key]: value };
-        pushHistory(measurements, next);
-        return next;
-      });
-    },
-    [measurements, pushHistory]
+    [pushHistory]
   );
 
   const handleMeasurementDelta = useCallback(
     (measurement: keyof Measurements, delta: number) => {
-      setMeasurements((prev) => {
-        const next = { ...prev, [measurement]: Math.max(100, prev[measurement] + delta) };
-        // Don't push to history on every drag tick — only on mouseUp via canvas
-        return next;
-      });
+      setMeasurements((prev) => ({
+        ...prev,
+        [measurement]: Math.max(100, prev[measurement] + delta),
+      }));
+    },
+    []
+  );
+
+  const handleOptionChange = useCallback(
+    <K extends keyof DesignOptions>(key: K, value: DesignOptions[K]) => {
+      // Options are handled through garment config now, keep for MeasurementsPanel compat
     },
     []
   );
 
   const pattern = useMemo(
-    () => generatePattern(measurements, options),
-    [measurements, options]
+    () => generatePatternFromConfig(garment, measurements),
+    [garment, measurements]
   );
+
+  const handleGeneratePattern = () => {
+    setMode("pattern");
+    setZoom(1);
+  };
+
+  const handleBackToConfig = () => {
+    setMode("configure");
+  };
 
   const handleExportSVG = () => exportSVG(pattern.svg);
   const handleExportPDF = () => exportPDF(pattern.svg);
@@ -110,23 +121,79 @@ export default function Studio() {
         onExportDXF={handleExportDXF}
       />
       <div className="flex flex-1 overflow-hidden">
-        {/* Left panel */}
-        <div className="w-72 flex-shrink-0 overflow-hidden">
-          <MeasurementsPanel
-            measurements={measurements}
-            options={options}
-            onMeasurementChange={handleMeasurementChange}
-            onOptionChange={handleOptionChange}
-          />
-        </div>
-        {/* Canvas */}
-        <div className="flex-1">
-          <PatternCanvas
-            pattern={pattern}
-            zoom={zoom}
-            onMeasurementDelta={handleMeasurementDelta}
-          />
-        </div>
+        <AnimatePresence mode="wait">
+          {mode === "configure" ? (
+            <motion.div
+              key="configure"
+              className="flex flex-1 overflow-hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              {/* Left: Configurator */}
+              <div className="w-80 flex-shrink-0 overflow-hidden">
+                <GarmentConfigurator
+                  garment={garment}
+                  onChange={setGarment}
+                  onGeneratePattern={handleGeneratePattern}
+                />
+              </div>
+              {/* Center: Silhouette preview */}
+              <div className="flex-1 bg-canvas canvas-grid flex items-center justify-center">
+                <motion.div
+                  key={JSON.stringify(garment)}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full h-full"
+                >
+                  <SilhouettePreview garment={garment} />
+                </motion.div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="pattern"
+              className="flex flex-1 overflow-hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              {/* Left: Measurements + back button */}
+              <div className="w-72 flex-shrink-0 overflow-hidden flex flex-col">
+                <div className="p-3 border-b border-border">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-2 text-xs"
+                    onClick={handleBackToConfig}
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    Back to Design
+                  </Button>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <MeasurementsPanel
+                    measurements={measurements}
+                    options={options}
+                    onMeasurementChange={handleMeasurementChange}
+                    onOptionChange={handleOptionChange}
+                  />
+                </div>
+              </div>
+              {/* Canvas */}
+              <div className="flex-1">
+                <PatternCanvas
+                  pattern={pattern}
+                  zoom={zoom}
+                  onMeasurementDelta={handleMeasurementDelta}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
