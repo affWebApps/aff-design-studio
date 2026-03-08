@@ -119,7 +119,17 @@ function fitExpand(fit: FitType): number {
   }
 }
 
+function backNecklinePath(fit: FitType): string {
+  const fw = fitExpand(fit);
+  const sw = SHOULDER_W + fw;
+  // Back neckline is always a higher, rounder shape
+  const depth = 8;
+  return `M ${CX - sw} ${SHOULDER_Y} C ${CX - sw + 8} ${SHOULDER_Y - 3} ${CX - 12} ${NECK_BASE - depth} ${CX} ${NECK_BASE - depth + 3} C ${CX + 12} ${NECK_BASE - depth} ${CX + sw - 8} ${SHOULDER_Y - 3} ${CX + sw} ${SHOULDER_Y}`;
+}
+
 function necklinePath(type: NecklineType, fit: FitType): string {
+  if (currentView === "back") return backNecklinePath(fit);
+
   const fw = fitExpand(fit);
   const sw = SHOULDER_W + fw;
   const nBase = NECK_BASE;
