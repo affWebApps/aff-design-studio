@@ -398,7 +398,7 @@ function gatheredTexture(hemY: number, hemW: number, silhouette: SkirtSilhouette
   return lines.join("");
 }
 
-function pantsBody(style: PantsStyle, length: PantsLength, waistband: WaistbandType, fit: FitType): string {
+function pantsBody(style: PantsStyle, length: PantsLength, waistband: WaistbandType, fit: FitType): string[] {
   const fw = fitExpand(fit || "regular");
   const hemY = getHemY(length);
   const ww = WAIST_W + fw;
