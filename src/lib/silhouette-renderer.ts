@@ -313,6 +313,21 @@ function collarPath(type: CollarType, fit: FitType): string {
 
 function closureDecoration(type: ClosureType, hemY: number): string {
   if (type === "none") return "";
+
+  // Back view shows back-specific closures
+  if (currentView === "back") {
+    // Always show a back zip/seam line on back view
+    if (type === "back-zip" || type === "front-buttons" || type === "side-zip") {
+      return `<line x1="${CX}" y1="${NECK_BASE}" x2="${CX}" y2="${Math.min(hemY - 10, WAIST_Y + 15)}" stroke="hsl(var(--muted-foreground) / 0.4)" stroke-width="0.6" stroke-dasharray="3 2" />`;
+    }
+    if (type === "wrap") {
+      // Wrap ties shown at back
+      return `<path d="M ${CX - 5} ${WAIST_Y} L ${CX - 15} ${WAIST_Y + 20} M ${CX + 5} ${WAIST_Y} L ${CX + 15} ${WAIST_Y + 20}" fill="none" stroke="hsl(var(--primary))" stroke-width="0.8" />`;
+    }
+    return "";
+  }
+
+  // Front view closures (original)
   if (type === "front-buttons") {
     const dots: string[] = [];
     for (let y = SHOULDER_Y + 20; y < hemY - 10; y += 22) {
