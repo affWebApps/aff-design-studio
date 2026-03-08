@@ -41,7 +41,7 @@ export function Toolbar({
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
             <Scissors className="h-3.5 w-3.5 text-primary-foreground" />
           </div>
-          <span className="font-display text-sm font-bold tracking-tight">PatternForge</span>
+          <span className="font-display text-sm font-bold tracking-tight">AFF Design Studio</span>
         </Link>
         <Separator orientation="vertical" className="h-6" />
         <Tooltip>

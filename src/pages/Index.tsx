@@ -179,7 +179,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="border-t border-border py-8">
         <div className="container flex items-center justify-between text-sm text-muted-foreground">
-          <span className="font-display font-semibold text-foreground">PatternForge</span>
+          <span className="font-display font-semibold text-foreground">AFF Design Studio</span>
           <span>Built with FreeSewing &amp; React</span>
         </div>
       </footer>
