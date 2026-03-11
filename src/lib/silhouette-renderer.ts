@@ -1,51 +1,31 @@
 /**
  * Fashion-illustration quality SVG silhouette renderer.
- * Renders a croquis (fashion figure) with garment overlay using smooth bezier curves,
- * realistic body proportions, and subtle shading for depth.
+ * Renders a croquis (fashion figure) with garment overlay.
+ * Uses the plugin registry for necklines, sleeves, collars, closures, and details.
  */
 import type {
-  GarmentConfig, NecklineType, SleeveType, CollarType, FitType,
-  SkirtSilhouette, SkirtLength, PantsStyle, PantsLength,
-  DressWaistline, TopLength, ClosureType, DetailType, WaistbandType
+  GarmentConfig, FitType,
+  SkirtSilhouette, SkirtLength, TopLength, PantsLength, PantsStyle,
+  DressWaistline, WaistbandType
 } from "./garment-config";
+import {
+  initializeFeatures, getFeature, getSleevePathForSide,
+  W, H, CX,
+  HEAD_TOP, HEAD_H, CHIN, NECK_BASE, SHOULDER_Y, BUST_Y, WAIST_Y, HIP_Y,
+  CROTCH_Y, KNEE_Y, ANKLE_Y, FOOT_Y,
+  SHOULDER_W, NECK_W, BUST_W, WAIST_W, HIP_W, KNEE_W, ANKLE_W,
+  ARM_PIT_Y, ELBOW_Y, WRIST_Y, HAND_Y,
+  fitExpand,
+} from "./garment-features";
+import type { FeatureRenderContext } from "./garment-features";
 
-const W = 260;
-const H = 600;
-const CX = W / 2;
-
-// ── Anatomical landmarks (9-head fashion proportion) ──
-const HEAD_TOP = 20;
-const HEAD_H = 52;
-const CHIN = HEAD_TOP + HEAD_H;
-const NECK_BASE = CHIN + 12;
-const SHOULDER_Y = NECK_BASE + 8;
-const BUST_Y = SHOULDER_Y + 52;
-const WAIST_Y = BUST_Y + 52;
-const HIP_Y = WAIST_Y + 38;
-const CROTCH_Y = HIP_Y + 32;
-const KNEE_Y = CROTCH_Y + 80;
-const ANKLE_Y = KNEE_Y + 90;
-const FOOT_Y = ANKLE_Y + 16;
-
-const SHOULDER_W = 42;
-const NECK_W = 10;
-const BUST_W = 38;
-const WAIST_W = 28;
-const HIP_W = 40;
-const KNEE_W = 14;
-const ANKLE_W = 10;
-
-// Arm landmarks
-const ARM_PIT_Y = BUST_Y - 8;
-const ELBOW_Y = WAIST_Y + 15;
-const WRIST_Y = HIP_Y + 20;
-const HAND_Y = WRIST_Y + 22;
+// Initialize all feature plugins on module load
+initializeFeatures();
 
 export type SketchTheme = "dark" | "light";
 export type SketchView = "front" | "back";
 
 let currentTheme: SketchTheme = "dark";
-
 let currentView: SketchView = "front";
 
 // ── Croquis (body figure) ──
@@ -54,21 +34,17 @@ function renderCroquis(): string {
   const skinStroke = "hsl(var(--muted-foreground) / 0.25)";
   const hairColor = "hsl(var(--muted-foreground) / 0.2)";
 
-  // Head - oval
   const headCX = CX;
   const headCY = HEAD_TOP + HEAD_H / 2;
   const headRX = 18;
   const headRY = HEAD_H / 2;
 
-  // Hair
   const hair = currentView === "back"
     ? `<ellipse cx="${headCX}" cy="${headCY}" rx="${headRX + 3}" ry="${headRY + 3}" fill="${hairColor}" />`
     : `<ellipse cx="${headCX}" cy="${headCY - 4}" rx="${headRX + 3}" ry="${headRY + 2}" fill="${hairColor}" />`;
 
-  // Head
   const head = `<ellipse cx="${headCX}" cy="${headCY}" rx="${headRX}" ry="${headRY}" fill="${skin}" stroke="${skinStroke}" stroke-width="0.8" />`;
 
-  // Face features (only front)
   const features = currentView === "front" ? `
     <ellipse cx="${CX - 6}" cy="${headCY - 2}" rx="2" ry="1.2" fill="none" stroke="${skinStroke}" stroke-width="0.6" />
     <ellipse cx="${CX + 6}" cy="${headCY - 2}" rx="2" ry="1.2" fill="none" stroke="${skinStroke}" stroke-width="0.6" />
@@ -76,30 +52,24 @@ function renderCroquis(): string {
     <line x1="${CX - 1}" y1="${headCY + 2}" x2="${CX}" y2="${headCY + 5}" stroke="${skinStroke}" stroke-width="0.5" />
   ` : "";
 
-  // Neck
   const neck = `<path d="M ${CX - NECK_W} ${CHIN} L ${CX - NECK_W} ${NECK_BASE} Q ${CX - NECK_W - 2} ${SHOULDER_Y} ${CX - SHOULDER_W} ${SHOULDER_Y} M ${CX + NECK_W} ${CHIN} L ${CX + NECK_W} ${NECK_BASE} Q ${CX + NECK_W + 2} ${SHOULDER_Y} ${CX + SHOULDER_W} ${SHOULDER_Y}" fill="none" stroke="${skinStroke}" stroke-width="0.8" />`;
 
-  // Torso outline (smooth curves)
   const torsoLeft = `M ${CX - SHOULDER_W} ${SHOULDER_Y} C ${CX - SHOULDER_W + 2} ${SHOULDER_Y + 20} ${CX - BUST_W - 2} ${BUST_Y - 15} ${CX - BUST_W} ${BUST_Y} C ${CX - BUST_W + 2} ${BUST_Y + 20} ${CX - WAIST_W - 4} ${WAIST_Y - 15} ${CX - WAIST_W} ${WAIST_Y} C ${CX - WAIST_W - 2} ${WAIST_Y + 15} ${CX - HIP_W - 2} ${HIP_Y - 10} ${CX - HIP_W} ${HIP_Y}`;
   const torsoRight = `M ${CX + SHOULDER_W} ${SHOULDER_Y} C ${CX + SHOULDER_W - 2} ${SHOULDER_Y + 20} ${CX + BUST_W + 2} ${BUST_Y - 15} ${CX + BUST_W} ${BUST_Y} C ${CX + BUST_W - 2} ${BUST_Y + 20} ${CX + WAIST_W + 4} ${WAIST_Y - 15} ${CX + WAIST_W} ${WAIST_Y} C ${CX + WAIST_W + 2} ${WAIST_Y + 15} ${CX + HIP_W + 2} ${HIP_Y - 10} ${CX + HIP_W} ${HIP_Y}`;
   const torso = `<path d="${torsoLeft}" fill="none" stroke="${skinStroke}" stroke-width="0.7" /><path d="${torsoRight}" fill="none" stroke="${skinStroke}" stroke-width="0.7" />`;
 
-  // Arms (relaxed, slightly away from body)
   const armOffX = 8;
   const leftArm = `M ${CX - SHOULDER_W} ${SHOULDER_Y} C ${CX - SHOULDER_W - armOffX} ${ARM_PIT_Y} ${CX - SHOULDER_W - armOffX - 4} ${ELBOW_Y - 20} ${CX - SHOULDER_W - armOffX - 2} ${ELBOW_Y} C ${CX - SHOULDER_W - armOffX} ${ELBOW_Y + 20} ${CX - SHOULDER_W - armOffX + 2} ${WRIST_Y - 10} ${CX - SHOULDER_W - armOffX + 4} ${WRIST_Y} L ${CX - SHOULDER_W - armOffX + 6} ${HAND_Y}`;
   const rightArm = `M ${CX + SHOULDER_W} ${SHOULDER_Y} C ${CX + SHOULDER_W + armOffX} ${ARM_PIT_Y} ${CX + SHOULDER_W + armOffX + 4} ${ELBOW_Y - 20} ${CX + SHOULDER_W + armOffX + 2} ${ELBOW_Y} C ${CX + SHOULDER_W + armOffX} ${ELBOW_Y + 20} ${CX + SHOULDER_W + armOffX - 2} ${WRIST_Y - 10} ${CX + SHOULDER_W + armOffX - 4} ${WRIST_Y} L ${CX + SHOULDER_W + armOffX - 6} ${HAND_Y}`;
   const arms = `<path d="${leftArm}" fill="none" stroke="${skinStroke}" stroke-width="2.5" stroke-linecap="round" /><path d="${rightArm}" fill="none" stroke="${skinStroke}" stroke-width="2.5" stroke-linecap="round" />`;
 
-  // Legs
   const legGap = 4;
   const leftLeg = `M ${CX - HIP_W + 5} ${HIP_Y} C ${CX - HIP_W + 8} ${CROTCH_Y - 10} ${CX - legGap - KNEE_W} ${KNEE_Y - 20} ${CX - legGap - KNEE_W + 2} ${KNEE_Y} C ${CX - legGap - KNEE_W + 4} ${KNEE_Y + 20} ${CX - legGap - ANKLE_W} ${ANKLE_Y - 20} ${CX - legGap - ANKLE_W + 2} ${ANKLE_Y} L ${CX - legGap - ANKLE_W - 2} ${FOOT_Y} L ${CX - legGap + 4} ${FOOT_Y}`;
   const rightLeg = `M ${CX + HIP_W - 5} ${HIP_Y} C ${CX + HIP_W - 8} ${CROTCH_Y - 10} ${CX + legGap + KNEE_W} ${KNEE_Y - 20} ${CX + legGap + KNEE_W - 2} ${KNEE_Y} C ${CX + legGap + KNEE_W - 4} ${KNEE_Y + 20} ${CX + legGap + ANKLE_W} ${ANKLE_Y - 20} ${CX + legGap + ANKLE_W - 2} ${ANKLE_Y} L ${CX + legGap + ANKLE_W + 2} ${FOOT_Y} L ${CX + legGap - 4} ${FOOT_Y}`;
-  // Inner legs
   const leftLegIn = `M ${CX - legGap} ${CROTCH_Y} C ${CX - legGap} ${KNEE_Y - 20} ${CX - legGap + 2} ${KNEE_Y} ${CX - legGap + 2} ${KNEE_Y} C ${CX - legGap + 2} ${KNEE_Y + 20} ${CX - legGap + 4} ${ANKLE_Y - 10} ${CX - legGap + 4} ${FOOT_Y}`;
   const rightLegIn = `M ${CX + legGap} ${CROTCH_Y} C ${CX + legGap} ${KNEE_Y - 20} ${CX + legGap - 2} ${KNEE_Y} ${CX + legGap - 2} ${KNEE_Y} C ${CX + legGap - 2} ${KNEE_Y + 20} ${CX + legGap - 4} ${ANKLE_Y - 10} ${CX + legGap - 4} ${FOOT_Y}`;
   const legs = `<path d="${leftLeg}" fill="none" stroke="${skinStroke}" stroke-width="0.8" /><path d="${rightLeg}" fill="none" stroke="${skinStroke}" stroke-width="0.8" /><path d="${leftLegIn}" fill="none" stroke="${skinStroke}" stroke-width="0.6" /><path d="${rightLegIn}" fill="none" stroke="${skinStroke}" stroke-width="0.6" />`;
 
-  // Back details (spine line, shoulder blades)
   const backDetails = currentView === "back" ? `
     <line x1="${CX}" y1="${NECK_BASE}" x2="${CX}" y2="${WAIST_Y}" stroke="${skinStroke}" stroke-width="0.4" opacity="0.5" />
     <path d="M ${CX - 12} ${SHOULDER_Y + 20} Q ${CX - 14} ${SHOULDER_Y + 35} ${CX - 8} ${SHOULDER_Y + 45}" fill="none" stroke="${skinStroke}" stroke-width="0.3" opacity="0.4" />
@@ -109,156 +79,45 @@ function renderCroquis(): string {
   return `${hair}${head}${features}${neck}${torso}${arms}${legs}${backDetails}`;
 }
 
-// ── Garment rendering helpers ──
+// ── Garment body shape helpers (kept in renderer — tightly coupled to anatomy) ──
 
-function fitExpand(fit: FitType): number {
-  switch (fit) {
-    case "loose": return 10;
-    case "fitted": return -3;
-    default: return 2;
-  }
-}
-
-function backNecklinePath(fit: FitType): string {
-  const fw = fitExpand(fit);
-  const sw = SHOULDER_W + fw;
-  // Back neckline is always a higher, rounder shape
-  const depth = 8;
-  return `M ${CX - sw} ${SHOULDER_Y} C ${CX - sw + 8} ${SHOULDER_Y - 3} ${CX - 12} ${NECK_BASE - depth} ${CX} ${NECK_BASE - depth + 3} C ${CX + 12} ${NECK_BASE - depth} ${CX + sw - 8} ${SHOULDER_Y - 3} ${CX + sw} ${SHOULDER_Y}`;
-}
-
-function necklinePath(type: NecklineType, fit: FitType): string {
-  if (currentView === "back") return backNecklinePath(fit);
-
-  const fw = fitExpand(fit);
-  const sw = SHOULDER_W + fw;
-  const nBase = NECK_BASE;
-
-  switch (type) {
-    case "v-neck":
-      return `M ${CX - sw} ${SHOULDER_Y} C ${CX - sw + 10} ${SHOULDER_Y - 4} ${CX - NECK_W} ${nBase - 2} ${CX - NECK_W} ${nBase} L ${CX} ${BUST_Y + 5} L ${CX + NECK_W} ${nBase} C ${CX + NECK_W} ${nBase - 2} ${CX + sw - 10} ${SHOULDER_Y - 4} ${CX + sw} ${SHOULDER_Y}`;
-    case "boat":
-      return `M ${CX - sw} ${SHOULDER_Y + 2} Q ${CX} ${SHOULDER_Y - 6} ${CX + sw} ${SHOULDER_Y + 2}`;
-    case "square": {
-      const sqW = 18;
-      const sqD = 20;
-      return `M ${CX - sw} ${SHOULDER_Y} C ${CX - sw + 8} ${SHOULDER_Y - 3} ${CX - sqW - 2} ${SHOULDER_Y - 2} ${CX - sqW} ${SHOULDER_Y} L ${CX - sqW} ${SHOULDER_Y + sqD} L ${CX + sqW} ${SHOULDER_Y + sqD} L ${CX + sqW} ${SHOULDER_Y} C ${CX + sqW + 2} ${SHOULDER_Y - 2} ${CX + sw - 8} ${SHOULDER_Y - 3} ${CX + sw} ${SHOULDER_Y}`;
-    }
-    case "sweetheart":
-      return `M ${CX - sw} ${SHOULDER_Y} C ${CX - sw + 8} ${SHOULDER_Y - 4} ${CX - 16} ${SHOULDER_Y + 5} ${CX - 12} ${SHOULDER_Y + 22} Q ${CX} ${SHOULDER_Y + 32} ${CX + 12} ${SHOULDER_Y + 22} C ${CX + 16} ${SHOULDER_Y + 5} ${CX + sw - 8} ${SHOULDER_Y - 4} ${CX + sw} ${SHOULDER_Y}`;
-    case "mandarin": {
-      const mw = 12;
-      const mh = 10;
-      return `M ${CX - sw} ${SHOULDER_Y} C ${CX - sw + 8} ${SHOULDER_Y - 3} ${CX - mw - 4} ${nBase + 2} ${CX - mw} ${nBase} L ${CX - mw} ${nBase - mh} Q ${CX} ${nBase - mh - 4} ${CX + mw} ${nBase - mh} L ${CX + mw} ${nBase} C ${CX + mw + 4} ${nBase + 2} ${CX + sw - 8} ${SHOULDER_Y - 3} ${CX + sw} ${SHOULDER_Y}`;
-    }
-    case "round":
-    default: {
-      const depth = 18;
-      return `M ${CX - sw} ${SHOULDER_Y} C ${CX - sw + 8} ${SHOULDER_Y - 4} ${CX - 15} ${nBase - depth + 2} ${CX} ${nBase - depth + 8} C ${CX + 15} ${nBase - depth + 2} ${CX + sw - 8} ${SHOULDER_Y - 4} ${CX + sw} ${SHOULDER_Y}`;
-    }
-  }
-}
-
-function sleevePath(type: SleeveType, side: "left" | "right", fit: FitType): string {
-  if (type === "sleeveless") return "";
-
-  const fw = fitExpand(fit);
-  const dir = side === "left" ? -1 : 1;
-  const sx = CX + dir * (SHOULDER_W + fw);
-  const sy = SHOULDER_Y;
-  const armOff = dir * 8;
-
-  // Arm center line points (matching croquis)
-  const elbowX = sx + dir * 6 + armOff;
-  const elbowYPos = ELBOW_Y;
-  const wristX = sx + dir * 4 + armOff;
-  const wristYPos = WRIST_Y;
-
-  const sleeveW = (type === "puff" || type === "bell") ? 18 : 12 + fw;
-
-  switch (type) {
-    case "cap": {
-      const capEnd = sy + 28;
-      return `M ${sx} ${sy} C ${sx + dir * 14} ${sy - 8} ${sx + dir * 20} ${sy + 5} ${sx + dir * 16} ${capEnd} C ${sx + dir * 12} ${capEnd + 5} ${sx + dir * 4} ${capEnd + 2} ${sx} ${capEnd - 5}`;
-    }
-    case "short": {
-      const endY = sy + 48;
-      return `M ${sx} ${sy} C ${sx + dir * 15} ${sy - 6} ${sx + dir * 22} ${sy + 10} ${sx + dir * 18} ${endY} L ${sx + dir * 4} ${endY} C ${sx + dir * 2} ${endY - 8} ${sx - dir * 2} ${ARM_PIT_Y + 10} ${sx} ${ARM_PIT_Y}`;
-    }
-    case "three-quarter": {
-      const endY = elbowYPos + 25;
-      const outerX = elbowX + dir * (sleeveW / 2);
-      const innerX = elbowX - dir * (sleeveW / 2 - 4);
-      return `M ${sx} ${sy} C ${sx + dir * 16} ${sy - 6} ${sx + dir * 22} ${sy + 10} ${outerX + dir * 4} ${ARM_PIT_Y + 10} C ${outerX + dir * 2} ${elbowYPos - 10} ${outerX} ${endY - 15} ${outerX} ${endY} L ${innerX} ${endY} C ${innerX} ${endY - 15} ${sx - dir * 2} ${ARM_PIT_Y + 15} ${sx} ${ARM_PIT_Y}`;
-    }
-    case "long": {
-      const endY = wristYPos + 5;
-      const outerElbowX = elbowX + dir * (sleeveW / 2);
-      const outerWristX = wristX + dir * (sleeveW / 2 - 2);
-      const innerWristX = wristX - dir * (sleeveW / 2 - 5);
-      const innerElbowX = elbowX - dir * (sleeveW / 2 - 5);
-      return `M ${sx} ${sy} C ${sx + dir * 16} ${sy - 6} ${sx + dir * 22} ${sy + 10} ${outerElbowX + dir * 2} ${ARM_PIT_Y + 10} C ${outerElbowX} ${elbowYPos - 10} ${outerWristX + dir * 2} ${endY - 40} ${outerWristX} ${endY} L ${innerWristX} ${endY} C ${innerWristX} ${endY - 30} ${innerElbowX} ${elbowYPos - 10} ${sx} ${ARM_PIT_Y}`;
-    }
-    case "bell": {
-      const endY = wristYPos + 8;
-      const bellFlare = 28;
-      const outerElbowX = elbowX + dir * (sleeveW / 2);
-      const outerWristX = wristX + dir * bellFlare;
-      const innerWristX = wristX - dir * (bellFlare - 10);
-      return `M ${sx} ${sy} C ${sx + dir * 16} ${sy - 6} ${sx + dir * 22} ${sy + 10} ${outerElbowX + dir * 2} ${ARM_PIT_Y + 10} C ${outerElbowX} ${elbowYPos - 10} ${outerWristX - dir * 8} ${endY - 40} ${outerWristX} ${endY} Q ${wristX + dir * 6} ${endY + 6} ${innerWristX} ${endY} C ${innerWristX + dir * 4} ${endY - 30} ${elbowX - dir * 4} ${elbowYPos - 5} ${sx} ${ARM_PIT_Y}`;
-    }
-    case "puff": {
-      const endY = sy + 40;
-      const puffW = 24;
-      return `M ${sx} ${sy} C ${sx + dir * puffW} ${sy - 12} ${sx + dir * (puffW + 6)} ${sy + 10} ${sx + dir * puffW} ${sy + 20} C ${sx + dir * (puffW - 2)} ${sy + 30} ${sx + dir * 14} ${endY + 2} ${sx + dir * 12} ${endY} L ${sx + dir * 2} ${endY} C ${sx} ${endY - 5} ${sx - dir * 2} ${ARM_PIT_Y + 10} ${sx} ${ARM_PIT_Y}`;
-    }
-    default:
-      return "";
-  }
-}
-
-/** Returns an array of separate path strings (each with its own M command) for the garment body. */
 function garmentBodyPaths(hemY: number, fit: FitType, flare: number = 0, waistlineShift: number = 0): string[] {
   const fw = fitExpand(fit);
   const bw = BUST_W + fw;
   const ww = WAIST_W + fw;
   const hw = HIP_W + fw;
-
   const actualWaistY = WAIST_Y + waistlineShift;
   const hemW = hw + flare;
 
   if (hemY <= BUST_Y + 10) {
     const tw = bw - (bw - ww) * ((hemY - SHOULDER_Y) / (WAIST_Y - SHOULDER_Y));
-    // Left side
-    const left = `M ${CX - bw} ${BUST_Y} C ${CX - bw + 1} ${BUST_Y + 5} ${CX - tw - 2} ${hemY - 5} ${CX - tw} ${hemY}`;
-    // Hem
-    const hem = `M ${CX - tw} ${hemY} L ${CX + tw} ${hemY}`;
-    // Right side
-    const right = `M ${CX + tw} ${hemY} C ${CX + tw + 2} ${hemY - 5} ${CX + bw - 1} ${BUST_Y + 5} ${CX + bw} ${BUST_Y}`;
-    return [left, hem, right];
+    return [
+      `M ${CX - bw} ${BUST_Y} C ${CX - bw + 1} ${BUST_Y + 5} ${CX - tw - 2} ${hemY - 5} ${CX - tw} ${hemY}`,
+      `M ${CX - tw} ${hemY} L ${CX + tw} ${hemY}`,
+      `M ${CX + tw} ${hemY} C ${CX + tw + 2} ${hemY - 5} ${CX + bw - 1} ${BUST_Y + 5} ${CX + bw} ${BUST_Y}`,
+    ];
   }
-
   if (hemY <= actualWaistY + 5) {
-    const left = `M ${CX - bw} ${BUST_Y} C ${CX - bw + 2} ${BUST_Y + 18} ${CX - ww - 3} ${hemY - 15} ${CX - ww} ${hemY}`;
-    const hem = `M ${CX - ww} ${hemY} L ${CX + ww} ${hemY}`;
-    const right = `M ${CX + ww} ${hemY} C ${CX + ww + 3} ${hemY - 15} ${CX + bw - 2} ${BUST_Y + 18} ${CX + bw} ${BUST_Y}`;
-    return [left, hem, right];
+    return [
+      `M ${CX - bw} ${BUST_Y} C ${CX - bw + 2} ${BUST_Y + 18} ${CX - ww - 3} ${hemY - 15} ${CX - ww} ${hemY}`,
+      `M ${CX - ww} ${hemY} L ${CX + ww} ${hemY}`,
+      `M ${CX + ww} ${hemY} C ${CX + ww + 3} ${hemY - 15} ${CX + bw - 2} ${BUST_Y + 18} ${CX + bw} ${BUST_Y}`,
+    ];
   }
-
   if (hemY <= HIP_Y + 10) {
     const t = (hemY - actualWaistY) / (HIP_Y - actualWaistY);
     const hemWAtY = ww + (hw - ww) * t + flare * t;
-    const left = `M ${CX - bw} ${BUST_Y} C ${CX - bw + 2} ${BUST_Y + 18} ${CX - ww - 3} ${actualWaistY - 15} ${CX - ww} ${actualWaistY} C ${CX - ww - 2} ${actualWaistY + 12} ${CX - hemWAtY - 2} ${hemY - 10} ${CX - hemWAtY} ${hemY}`;
-    const hem = `M ${CX - hemWAtY} ${hemY} L ${CX + hemWAtY} ${hemY}`;
-    const right = `M ${CX + hemWAtY} ${hemY} C ${CX + hemWAtY + 2} ${hemY - 10} ${CX + ww + 2} ${actualWaistY + 12} ${CX + ww} ${actualWaistY} C ${CX + ww + 3} ${actualWaistY - 15} ${CX + bw - 2} ${BUST_Y + 18} ${CX + bw} ${BUST_Y}`;
-    return [left, hem, right];
+    return [
+      `M ${CX - bw} ${BUST_Y} C ${CX - bw + 2} ${BUST_Y + 18} ${CX - ww - 3} ${actualWaistY - 15} ${CX - ww} ${actualWaistY} C ${CX - ww - 2} ${actualWaistY + 12} ${CX - hemWAtY - 2} ${hemY - 10} ${CX - hemWAtY} ${hemY}`,
+      `M ${CX - hemWAtY} ${hemY} L ${CX + hemWAtY} ${hemY}`,
+      `M ${CX + hemWAtY} ${hemY} C ${CX + hemWAtY + 2} ${hemY - 10} ${CX + ww + 2} ${actualWaistY + 12} ${CX + ww} ${actualWaistY} C ${CX + ww + 3} ${actualWaistY - 15} ${CX + bw - 2} ${BUST_Y + 18} ${CX + bw} ${BUST_Y}`,
+    ];
   }
-
-  // Below hip
-  const left = `M ${CX - bw} ${BUST_Y} C ${CX - bw + 2} ${BUST_Y + 18} ${CX - ww - 3} ${actualWaistY - 15} ${CX - ww} ${actualWaistY} C ${CX - ww - 2} ${actualWaistY + 12} ${CX - hw - 2} ${HIP_Y - 8} ${CX - hw} ${HIP_Y} C ${CX - hw - 1} ${HIP_Y + 10} ${CX - hemW - 1} ${hemY - 15} ${CX - hemW} ${hemY}`;
-  const hem = `M ${CX - hemW} ${hemY} L ${CX + hemW} ${hemY}`;
-  const right = `M ${CX + hemW} ${hemY} C ${CX + hemW + 1} ${hemY - 15} ${CX + hw + 1} ${HIP_Y + 10} ${CX + hw} ${HIP_Y} C ${CX + hw + 2} ${HIP_Y - 8} ${CX + ww + 2} ${actualWaistY + 12} ${CX + ww} ${actualWaistY} C ${CX + ww + 3} ${actualWaistY - 15} ${CX + bw - 2} ${BUST_Y + 18} ${CX + bw} ${BUST_Y}`;
-  return [left, hem, right];
+  return [
+    `M ${CX - bw} ${BUST_Y} C ${CX - bw + 2} ${BUST_Y + 18} ${CX - ww - 3} ${actualWaistY - 15} ${CX - ww} ${actualWaistY} C ${CX - ww - 2} ${actualWaistY + 12} ${CX - hw - 2} ${HIP_Y - 8} ${CX - hw} ${HIP_Y} C ${CX - hw - 1} ${HIP_Y + 10} ${CX - hemW - 1} ${hemY - 15} ${CX - hemW} ${hemY}`,
+    `M ${CX - hemW} ${hemY} L ${CX + hemW} ${hemY}`,
+    `M ${CX + hemW} ${hemY} C ${CX + hemW + 1} ${hemY - 15} ${CX + hw + 1} ${HIP_Y + 10} ${CX + hw} ${HIP_Y} C ${CX + hw + 2} ${HIP_Y - 8} ${CX + ww + 2} ${actualWaistY + 12} ${CX + ww} ${actualWaistY} C ${CX + ww + 3} ${actualWaistY - 15} ${CX + bw - 2} ${BUST_Y + 18} ${CX + bw} ${BUST_Y}`,
+  ];
 }
 
 function getHemY(length: SkirtLength | TopLength | PantsLength | string): number {
@@ -288,122 +147,6 @@ function getFlare(silhouette: SkirtSilhouette): number {
     case "pencil": return -6;
     case "straight": default: return 0;
   }
-}
-
-function collarPath(type: CollarType, fit: FitType): string {
-  const fw = fitExpand(fit);
-  const sw = SHOULDER_W + fw;
-  switch (type) {
-    case "none": return "";
-    case "peter-pan": {
-      return `<path d="M ${CX - 12} ${NECK_BASE} C ${CX - 18} ${SHOULDER_Y + 3} ${CX - sw + 8} ${SHOULDER_Y + 8} ${CX - sw + 3} ${SHOULDER_Y + 3} M ${CX + 12} ${NECK_BASE} C ${CX + 18} ${SHOULDER_Y + 3} ${CX + sw - 8} ${SHOULDER_Y + 8} ${CX + sw - 3} ${SHOULDER_Y + 3}" fill="hsl(var(--primary) / 0.08)" stroke="hsl(var(--primary))" stroke-width="1" />`;
-    }
-    case "mandarin": {
-      return `<path d="M ${CX - 10} ${NECK_BASE - 2} L ${CX - 10} ${NECK_BASE - 14} Q ${CX} ${NECK_BASE - 18} ${CX + 10} ${NECK_BASE - 14} L ${CX + 10} ${NECK_BASE - 2}" fill="hsl(var(--primary) / 0.06)" stroke="hsl(var(--primary))" stroke-width="1" />`;
-    }
-    case "shirt": {
-      return `<path d="M ${CX - 10} ${NECK_BASE - 2} L ${CX - 22} ${SHOULDER_Y + 14} L ${CX - 10} ${SHOULDER_Y + 8} M ${CX + 10} ${NECK_BASE - 2} L ${CX + 22} ${SHOULDER_Y + 14} L ${CX + 10} ${SHOULDER_Y + 8}" fill="none" stroke="hsl(var(--primary))" stroke-width="1" />`;
-    }
-    case "sailor": {
-      return `<path d="M ${CX - 12} ${NECK_BASE} L ${CX - sw - 8} ${BUST_Y + 5} L ${CX - sw + 12} ${BUST_Y + 5} Z M ${CX + 12} ${NECK_BASE} L ${CX + sw + 8} ${BUST_Y + 5} L ${CX + sw - 12} ${BUST_Y + 5} Z" fill="hsl(var(--primary) / 0.06)" stroke="hsl(var(--primary))" stroke-width="1" />`;
-    }
-    default: return "";
-  }
-}
-
-function closureDecoration(type: ClosureType, hemY: number): string {
-  if (type === "none") return "";
-
-  // Back view shows back-specific closures
-  if (currentView === "back") {
-    // Always show a back zip/seam line on back view
-    if (type === "back-zip" || type === "front-buttons" || type === "side-zip") {
-      return `<line x1="${CX}" y1="${NECK_BASE}" x2="${CX}" y2="${Math.min(hemY - 10, WAIST_Y + 15)}" stroke="hsl(var(--muted-foreground) / 0.4)" stroke-width="0.6" stroke-dasharray="3 2" />`;
-    }
-    if (type === "wrap") {
-      // Wrap ties shown at back
-      return `<path d="M ${CX - 5} ${WAIST_Y} L ${CX - 15} ${WAIST_Y + 20} M ${CX + 5} ${WAIST_Y} L ${CX + 15} ${WAIST_Y + 20}" fill="none" stroke="hsl(var(--primary))" stroke-width="0.8" />`;
-    }
-    return "";
-  }
-
-  // Front view closures (original)
-  if (type === "front-buttons") {
-    const dots: string[] = [];
-    for (let y = SHOULDER_Y + 20; y < hemY - 10; y += 22) {
-      dots.push(`<circle cx="${CX}" cy="${y}" r="2.5" fill="none" stroke="hsl(var(--primary))" stroke-width="0.8" />`);
-      dots.push(`<circle cx="${CX}" cy="${y}" r="0.8" fill="hsl(var(--primary))" />`);
-    }
-    return dots.join("");
-  }
-  if (type === "back-zip") {
-    return `<line x1="${CX}" y1="${NECK_BASE}" x2="${CX}" y2="${Math.min(hemY - 10, WAIST_Y + 15)}" stroke="hsl(var(--muted-foreground) / 0.4)" stroke-width="0.6" stroke-dasharray="3 2" />`;
-  }
-  if (type === "wrap") {
-    return `<path d="M ${CX - 8} ${SHOULDER_Y + 5} C ${CX} ${BUST_Y} ${CX + 5} ${BUST_Y + 10} ${CX + 12} ${WAIST_Y}" fill="none" stroke="hsl(var(--primary))" stroke-width="0.8" /><path d="M ${CX + 12} ${WAIST_Y} L ${CX + 20} ${WAIST_Y + 15} L ${CX + 12} ${WAIST_Y + 30}" fill="none" stroke="hsl(var(--primary))" stroke-width="0.8" />`;
-  }
-  if (type === "side-zip") {
-    const fw = 2;
-    return `<line x1="${CX + WAIST_W + fw}" y1="${BUST_Y + 10}" x2="${CX + WAIST_W + fw}" y2="${WAIST_Y + 10}" stroke="hsl(var(--muted-foreground) / 0.3)" stroke-width="0.5" stroke-dasharray="2 2" />`;
-  }
-  return "";
-}
-
-function detailElements(details: DetailType[], hemY: number, hemW: number): string {
-  const els: string[] = [];
-  details.forEach(d => {
-    switch (d) {
-      case "lace-trim": {
-        let scallop = `M ${CX - hemW} ${hemY}`;
-        for (let x = CX - hemW; x < CX + hemW; x += 7) {
-          scallop += ` Q ${x + 3.5} ${hemY + 5} ${x + 7} ${hemY}`;
-        }
-        els.push(`<path d="${scallop}" fill="none" stroke="hsl(var(--primary) / 0.5)" stroke-width="0.8" />`);
-        let inner = `M ${CX - hemW + 2} ${hemY - 3}`;
-        for (let x = CX - hemW + 2; x < CX + hemW - 2; x += 5) {
-          inner += ` Q ${x + 2.5} ${hemY + 1} ${x + 5} ${hemY - 3}`;
-        }
-        els.push(`<path d="${inner}" fill="none" stroke="hsl(var(--primary) / 0.3)" stroke-width="0.5" />`);
-        break;
-      }
-      case "ruffle": {
-        for (let row = 0; row < 2; row++) {
-          let wave = `M ${CX - hemW} ${hemY - row * 5}`;
-          for (let x = CX - hemW; x < CX + hemW; x += 8) {
-            const amp = 4 + Math.sin(x * 0.3) * 2;
-            wave += ` C ${x + 2} ${hemY - row * 5 + amp} ${x + 6} ${hemY - row * 5 - amp * 0.5} ${x + 8} ${hemY - row * 5}`;
-          }
-          els.push(`<path d="${wave}" fill="none" stroke="hsl(var(--primary) / ${0.4 - row * 0.15})" stroke-width="0.7" />`);
-        }
-        break;
-      }
-      case "pintucks": {
-        for (let i = -3; i <= 3; i++) {
-          els.push(`<line x1="${CX + i * 5}" y1="${SHOULDER_Y + 15}" x2="${CX + i * 5}" y2="${WAIST_Y - 5}" stroke="hsl(var(--muted-foreground) / 0.25)" stroke-width="0.4" />`);
-        }
-        break;
-      }
-      case "piping": {
-        els.push(`<path d="M ${CX - SHOULDER_W} ${SHOULDER_Y} C ${CX - BUST_W - 2} ${BUST_Y - 5} ${CX - WAIST_W - 2} ${WAIST_Y - 10} ${CX - WAIST_W} ${WAIST_Y}" fill="none" stroke="hsl(var(--primary) / 0.4)" stroke-width="1.2" />`);
-        els.push(`<path d="M ${CX + SHOULDER_W} ${SHOULDER_Y} C ${CX + BUST_W + 2} ${BUST_Y - 5} ${CX + WAIST_W + 2} ${WAIST_Y - 10} ${CX + WAIST_W} ${WAIST_Y}" fill="none" stroke="hsl(var(--primary) / 0.4)" stroke-width="1.2" />`);
-        break;
-      }
-      case "embroidery-border": {
-        let emb = `M ${CX - hemW + 4} ${hemY - 10}`;
-        for (let x = CX - hemW + 4; x < CX + hemW - 4; x += 6) {
-          emb += ` C ${x + 1.5} ${hemY - 14} ${x + 3} ${hemY - 6} ${x + 6} ${hemY - 10}`;
-        }
-        els.push(`<path d="${emb}" fill="none" stroke="hsl(var(--primary) / 0.4)" stroke-width="0.7" />`);
-        let dots = "";
-        for (let x = CX - hemW + 7; x < CX + hemW - 7; x += 12) {
-          dots += `<circle cx="${x}" cy="${hemY - 16}" r="1" fill="hsl(var(--primary) / 0.3)" />`;
-        }
-        els.push(dots);
-        break;
-      }
-    }
-  });
-  return els.join("");
 }
 
 function waistlineIndicator(waistline: DressWaistline): string {
@@ -454,26 +197,13 @@ function pantsBody(style: PantsStyle, length: PantsLength, waistband: WaistbandT
 
   const wbH = waistband === "yoke" ? 16 : 7;
   const hipLegW = style === "wide" || style === "flared" ? hw + 2 : hw - 1;
-
-  // Each part is a separate path with its own M command (pen lifts between parts)
   const paths: string[] = [];
 
-  // Waistband top
   paths.push(`M ${CX - ww} ${WAIST_Y - wbH} L ${CX + ww} ${WAIST_Y - wbH}`);
-
-  // Left leg outer
   paths.push(`M ${CX - ww} ${WAIST_Y - wbH} L ${CX - ww} ${WAIST_Y} C ${CX - ww - 1} ${WAIST_Y + 10} ${CX - hw - 2} ${HIP_Y - 8} ${CX - hw} ${HIP_Y} C ${CX - hipLegW - 1} ${HIP_Y + 10} ${CX - hipLegW - 2} ${crotchY - 5} ${CX - hipLegW} ${crotchY} C ${CX - hipLegW + 2} ${crotchY + 20} ${CX - legW - 2} ${hemY - 20} ${CX - legW} ${hemY}`);
-
-  // Left leg hem + inner
   paths.push(`M ${CX - legW} ${hemY} L ${CX - gap} ${hemY} C ${CX - gap} ${hemY - 20} ${CX - gap} ${crotchY + 10} ${CX - gap} ${crotchY}`);
-
-  // Crotch curve
   paths.push(`M ${CX - gap} ${crotchY} Q ${CX} ${crotchY + 8} ${CX + gap} ${crotchY}`);
-
-  // Right leg inner + hem
   paths.push(`M ${CX + gap} ${crotchY} C ${CX + gap} ${crotchY + 10} ${CX + gap} ${hemY - 20} ${CX + gap} ${hemY} L ${CX + legW} ${hemY}`);
-
-  // Right leg outer
   paths.push(`M ${CX + legW} ${hemY} C ${CX + legW + 2} ${hemY - 20} ${CX + hipLegW - 2} ${crotchY + 20} ${CX + hipLegW} ${crotchY} C ${CX + hipLegW + 2} ${crotchY - 5} ${CX + hipLegW + 1} ${HIP_Y + 10} ${CX + hw} ${HIP_Y} C ${CX + hw + 2} ${HIP_Y - 8} ${CX + ww + 1} ${WAIST_Y + 10} ${CX + ww} ${WAIST_Y} L ${CX + ww} ${WAIST_Y - wbH}`);
 
   return paths;
@@ -494,7 +224,6 @@ function pantsPocketDecor(pockets: string, style: PantsStyle): string {
   }
 }
 
-// ── Subtle shading gradient definitions ──
 function gradientDefs(): string {
   return `<defs>
     <linearGradient id="garment-shade" x1="0" y1="0" x2="1" y2="0">
@@ -509,6 +238,19 @@ function gradientDefs(): string {
       <stop offset="100%" stop-color="hsl(var(--primary))" stop-opacity="0.06" />
     </linearGradient>
   </defs>`;
+}
+
+// ── Helper to get feature decoration ──
+function featureDecoration(category: "collar" | "closure" | "detail", id: string, ctx: FeatureRenderContext): string {
+  const feature = getFeature(category, id);
+  if (!feature?.renderDecoration) return "";
+  return feature.renderDecoration(ctx);
+}
+
+function featurePath(category: "neckline", id: string, ctx: FeatureRenderContext): string {
+  const feature = getFeature(category, id);
+  if (!feature?.renderPath) return "";
+  return feature.renderPath(ctx);
 }
 
 // ── Main renderer ──
@@ -526,20 +268,20 @@ export function renderSilhouette(garment: GarmentConfig, theme: SketchTheme = "d
       const c = garment.config;
       const hemY = getHemY(c.length);
       const fw = fitExpand(c.fit);
-      const sw = SHOULDER_W + fw;
       const hemW = WAIST_W + fw + (hemY > HIP_Y ? (HIP_W - WAIST_W + fw) : 0);
+      const ctx: FeatureRenderContext = { fit: c.fit, view, hemY, hemW };
 
-      garmentPaths.push(necklinePath(c.neckline, c.fit));
+      garmentPaths.push(featurePath("neckline", c.neckline, ctx));
       garmentBodyPaths(hemY, c.fit).forEach(p => garmentPaths.push(p));
 
-      const slL = sleevePath(c.sleeve, "left", c.fit);
-      const slR = sleevePath(c.sleeve, "right", c.fit);
+      const slL = getSleevePathForSide(c.sleeve, "left", c.fit);
+      const slR = getSleevePathForSide(c.sleeve, "right", c.fit);
       if (slL) garmentPaths.push(slL);
       if (slR) garmentPaths.push(slR);
 
-      extras.push(collarPath(c.collar, c.fit));
-      extras.push(closureDecoration(c.closure, hemY));
-      extras.push(detailElements(c.details, hemY, hemW));
+      extras.push(featureDecoration("collar", c.collar, ctx));
+      extras.push(featureDecoration("closure", c.closure, ctx));
+      c.details.forEach(d => extras.push(featureDecoration("detail", d, ctx)));
       break;
     }
     case "dress": {
@@ -551,19 +293,20 @@ export function renderSilhouette(garment: GarmentConfig, theme: SketchTheme = "d
       let waistShift = 0;
       if (c.waistline === "empire") waistShift = -(WAIST_Y - BUST_Y) + 12;
       else if (c.waistline === "drop") waistShift = (HIP_Y - WAIST_Y) - 8;
+      const ctx: FeatureRenderContext = { fit: c.fit, view, hemY, hemW };
 
-      garmentPaths.push(necklinePath(c.neckline, c.fit));
+      garmentPaths.push(featurePath("neckline", c.neckline, ctx));
       garmentBodyPaths(hemY, c.fit, flare, waistShift).forEach(p => garmentPaths.push(p));
 
-      const slL = sleevePath(c.sleeve, "left", c.fit);
-      const slR = sleevePath(c.sleeve, "right", c.fit);
+      const slL = getSleevePathForSide(c.sleeve, "left", c.fit);
+      const slR = getSleevePathForSide(c.sleeve, "right", c.fit);
       if (slL) garmentPaths.push(slL);
       if (slR) garmentPaths.push(slR);
 
       extras.push(waistlineIndicator(c.waistline));
-      extras.push(collarPath(c.collar, c.fit));
-      extras.push(closureDecoration(c.closure, hemY));
-      extras.push(detailElements(c.details, hemY, hemW));
+      extras.push(featureDecoration("collar", c.collar, ctx));
+      extras.push(featureDecoration("closure", c.closure, ctx));
+      c.details.forEach(d => extras.push(featureDecoration("detail", d, ctx)));
       extras.push(gatheredTexture(hemY, hemW, c.skirtSilhouette));
       break;
     }
@@ -574,26 +317,26 @@ export function renderSilhouette(garment: GarmentConfig, theme: SketchTheme = "d
       const hw = HIP_W + flare;
       const ww = WAIST_W;
       const wbH = c.waistband === "yoke" ? 16 : 7;
+      const ctx: FeatureRenderContext = { fit: "regular", view, hemY, hemW: hw };
 
       const skirt = `M ${CX - ww} ${WAIST_Y - wbH} L ${CX + ww} ${WAIST_Y - wbH} L ${CX + ww} ${WAIST_Y} C ${CX + ww + 2} ${WAIST_Y + 12} ${CX + HIP_W + 2} ${HIP_Y - 8} ${CX + HIP_W} ${HIP_Y} C ${CX + HIP_W + 1} ${HIP_Y + 10} ${CX + hw + 1} ${hemY - 15} ${CX + hw} ${hemY} L ${CX - hw} ${hemY} C ${CX - hw - 1} ${hemY - 15} ${CX - HIP_W - 1} ${HIP_Y + 10} ${CX - HIP_W} ${HIP_Y} C ${CX - HIP_W - 2} ${HIP_Y - 8} ${CX - ww - 2} ${WAIST_Y + 12} ${CX - ww} ${WAIST_Y} Z`;
       garmentPaths.push(skirt);
 
-      // Waistband line
       extras.push(`<line x1="${CX - ww}" y1="${WAIST_Y}" x2="${CX + ww}" y2="${WAIST_Y}" stroke="hsl(var(--primary) / 0.3)" stroke-width="0.5" />`);
-      extras.push(detailElements(c.details, hemY, hw));
+      c.details.forEach(d => extras.push(featureDecoration("detail", d, ctx)));
       extras.push(gatheredTexture(hemY, hw, c.silhouette));
       break;
     }
     case "pants": {
       const c = garment.config;
+      const hemY = getHemY(c.length);
+      const ctx: FeatureRenderContext = { fit: "regular", view, hemY, hemW: 17 };
       pantsBody(c.style, c.length, c.waistband, "regular").forEach(p => garmentPaths.push(p));
 
       extras.push(pantsPocketDecor(c.pockets, c.style));
-      extras.push(detailElements(c.details, getHemY(c.length), 17));
+      c.details.forEach(d => extras.push(featureDecoration("detail", d, ctx)));
 
-      // Center crease for tailored styles
       if (c.style === "straight" || c.style === "tapered" || c.style === "slim") {
-        const hemY = getHemY(c.length);
         extras.push(`<line x1="${CX - 12}" y1="${CROTCH_Y + 15}" x2="${CX - 12}" y2="${hemY - 5}" stroke="hsl(var(--muted-foreground) / 0.15)" stroke-width="0.4" />`);
         extras.push(`<line x1="${CX + 12}" y1="${CROTCH_Y + 15}" x2="${CX + 12}" y2="${hemY - 5}" stroke="hsl(var(--muted-foreground) / 0.15)" stroke-width="0.4" />`);
       }
@@ -605,7 +348,6 @@ export function renderSilhouette(garment: GarmentConfig, theme: SketchTheme = "d
     .map(d => `<path d="${d}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" />`)
     .join("\n    ");
 
-  // For light theme, inject CSS overrides so all hsl(var(--...)) refs resolve to dark sketch colors
   const themeStyle = currentTheme === "light" ? `<style>
     svg { --primary: 20 8% 15%; --primary-foreground: 0 0% 96%; --muted-foreground: 20 6% 35%; --muted: 20 5% 85%; --border: 20 5% 75%; }
   </style>` : "";
